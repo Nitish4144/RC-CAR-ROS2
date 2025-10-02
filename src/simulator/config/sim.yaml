@@ -42,7 +42,7 @@ bridge:
     scan_beams: 1080
 
     # map parameters
-    map_path: '/sim_ws/src/simulator/maps/Budapest_map'
+    map_path: '/home/goldenhawk/ros2_ws/RC-CAR-ROS2/src/simulator/maps/Budapest_map'
     map_img_ext: '.png'
 
     # opponent parameters

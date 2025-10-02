@@ -80,3 +80,4 @@ Then, press `i` to move forward, `u` and `o` to move forward and turn, `,` to mo
 ## About Us
 
 S7our Squad team at the University of Ibn Tofail, we work on autonomous systems (cars), led by professor BOUKIR Khawla. Current members composed of OKHADIR Hamza, GHIATI Mustapha, KHATIB Mouad and EL-LOUH Youssef.
+  
