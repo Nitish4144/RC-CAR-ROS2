@@ -14,13 +14,13 @@ class ReactiveFollowGap(Node):
     def __init__(self):
         super().__init__('reactive_node')
         # Topics & Subs, Pubs
-        lidarscan_topic = '/scan'
-        drive_topic = '/drive'
+        lidarscan_topic = '/scan' #input topic
+        drive_topic = '/drive' #output topic
 
         # TODO: Subscribe to LIDAR
         # TODO: Publish to drive
 
-    def preprocess_lidar(self, ranges):
+    def preprocess_lidar(self, ranges): 																# to be edited by US
         """ Preprocess the LiDAR scan array. Expert implementation includes:
             1.Setting each value to the mean over some window
             2.Rejecting high values (eg. > 3m)
@@ -28,7 +28,7 @@ class ReactiveFollowGap(Node):
         proc_ranges = ranges
         return proc_ranges
 
-    def find_max_gap(self, free_space_ranges):
+    def find_max_gap(self, free_space_ranges): 															#to be edited by US
         """ Return the start index & end index of the max gap in free_space_ranges
         """
         return None
@@ -51,11 +51,11 @@ class ReactiveFollowGap(Node):
 
         #Eliminate all points inside 'bubble' (set them to zero) 
 
-        #Find max length gap 
+        #Find max length gap 																#fin_max_gap()
 
-        #Find the best point in the gap 
+        #Find the best point in the gap 													#find_best_point()
 
-        #Publish Drive message
+        #Publish Drive message																#use the drive topic from ln18
 
 
 def main(args=None):
