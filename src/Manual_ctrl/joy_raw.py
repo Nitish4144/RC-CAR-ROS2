@@ -8,7 +8,7 @@ class PS4Controller(Node):
         super().__init__('joystick_ramped')
         self.subscription = self.create_subscription(
             Joy, 'joy', self.joy_callback, 10)
-        self.publisher = self.create_publisher(Joy, 'catatron_joy/joy_ramped', 10)
+        self.publisher = self.create_publisher(Joy, 'driftpilot_joy/joy_ramped', 10)
         self.timer = self.create_timer(1.0 / rate, self.publish_joy)
         self.target_joy = Joy()
         self.target_joy.axes = [0., 0., 1., 0., 0., 1., 0., 0.]
