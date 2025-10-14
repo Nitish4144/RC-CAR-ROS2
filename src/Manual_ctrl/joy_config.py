@@ -9,7 +9,7 @@ class SimpleCarController(Node):
         super().__init__('simple_car_controller')
         self.steering_pub = self.create_publisher(Float64, 'steering_cmd', 10)
         self.throttle_pub = self.create_publisher(Float64, 'throttle_cmd', 10)
-        self.joystick_sub = self.create_subscription(Joy, 'catatron_joy/joy_ramped', self.joy_callback, 10)
+        self.joystick_sub = self.create_subscription(Joy, 'driftpilot_joy/joy_ramped', self.joy_callback, 10)
         self.steering = 0.0  # Default: center
         self.throttle = 0.0  # Default: neutral
         self.timer = self.create_timer(1.0 / 60.0, self.publish_commands)  # 60Hz update
