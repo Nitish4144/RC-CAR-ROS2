@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Start the standard ROS 2 joystick reader node
+#ros2 run joy_linux joy_node --ros-args -r joy:=driftpilot_joy/joy_ramped
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
@@ -19,11 +21,11 @@ class PS4Controller(Node):
         self.target_joy.axes = msg.axes
 
     def publish_joy(self):
-        self.publisher.publish(self.target_joy)
+        self.publisher.publish(self.target_joy) #publishes the joy message under /driftpilot_joy/joy_ramped topic
 
 def main(args=None):
     rclpy.init(args=args)
-    joystick = PS4Controller(rate=30)
+    joystick = PS4Controller(rate=60)
     rclpy.spin(joystick)
     joystick.destroy_node()
     rclpy.shutdown()
