@@ -13,7 +13,7 @@ setup(
             'launch/joy_raw.launch.py',
             'launch/joy_drive.launch.py',
             'launch/motor_signals.launch.py',
-            'launch/all_manual_ctrl.launch.py',  # Include your combined launch file if present
+            'launch/manual_ctrl.launch.py',  # Include your combined launch file if present
         ]),
     ],
     install_requires=['setuptools'],

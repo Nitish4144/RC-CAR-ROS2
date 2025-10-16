@@ -29,20 +29,20 @@ then run the launch files
 
 ### 1. manual_ctrl
 ```bash
-ros2 launch Manual_ctrl all_manual_ctrl.launch.py
+ros2 launch manual_ctrl manual_ctrl.launch.py
 ```
 
 ### 2. joy_raw
 ```bash
-ros2 launch Manual_ctrl joy_raw.launch.py
+ros2 launch manual_ctrl joy_raw.launch.py
 ```
 
 ### 3.joy_drive
 ```bash
-ros2 launch Manual_ctrl joy_drive.launch.py
+ros2 launch manual_ctrl joy_drive.launch.py
 ```
 
 ### 4. motor_signals
 ```bash
-ros2 launch Manual_ctrl motor_signals.launch.py
+ros2 launch manual_ctrl motor_signals.launch.py
 ```
