@@ -16,7 +16,7 @@ class SimpleCarController(Node):
 
     def joy_callback(self, msg):
         # Example: axis 0 = steering (left/right), axis 1 = throttle (up/down)
-        if len(msg.axes) >= 2:
+        if len(msg.axes) >= 4:
             self.steering = msg.axes     # Left/right stick for steering [-1.0, 1.0]
             self.throttle = msg.axes[4]     # Up/down stick for throttle [-1.0, 1.0]
         else:
