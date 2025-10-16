@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'Manual_ctrl'
+package_name = 'manual_ctrl'
 
 setup(
     name=package_name,
@@ -25,9 +25,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'joy_raw = Manual_ctrl.joy_raw:main',
-            'joy_drive = Manual_ctrl.joy_drive:main',
-            'motor_signals = Manual_ctrl.motor_signals:main',
+            'joy_raw = manual_ctrl.joy_raw:main',
+            'joy_drive = manual_ctrl.joy_drive:main',
+            'motor_signals = manual_ctrl.motor_signals:main',
         ],
     },
 )

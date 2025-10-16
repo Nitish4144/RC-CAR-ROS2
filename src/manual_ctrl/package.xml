@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>Manual_ctrl</name>
+  <name>manual_ctrl</name>
   <version>0.0.1</version>
-  <description>Manual control ROS 2 nodes for RC Car (joystick and motor control).</description>
+  <description>manual control ROS 2 nodes for RC Car (joystick and motor control).</description>
 
   <maintainer email="devadanitish@gmail.com">Nitish</maintainer>
   <license>MIT</license>
