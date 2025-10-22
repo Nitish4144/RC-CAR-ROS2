@@ -22,8 +22,12 @@ run the following command to start the pigpiod daemon and the ros2 joystick read
 
 ## To launch 
 ```bash
-sudo pigpiod
-ros2 run joy_linux joy_node --ros-args -r joy:=driftpilot_joy/joy_ramped
+sudo apt update 
+sudo pigpiod #requires raspi os for controls; runs on pc without control ability 
+#rm -rf install log build --> to remove previous files
+colcon build 
+source install/setup.bash
+ros2 run joy joy_node
 ```
 then run the launch files
 
@@ -31,18 +35,28 @@ then run the launch files
 ```bash
 ros2 launch manual_ctrl manual_ctrl.launch.py
 ```
-
 ### 2. joy_raw
 ```bash
 ros2 launch manual_ctrl joy_raw.launch.py
 ```
-
 ### 3.joy_drive
 ```bash
 ros2 launch manual_ctrl joy_drive.launch.py
 ```
-
 ### 4. motor_signals
 ```bash
 ros2 launch manual_ctrl motor_signals.launch.py
 ```
+
+
+## To run simulation uaing joystick
+```bash
+#clone the repo
+m/f1tenth/f1tenth_gym.git
+cd f1tenth_gym
+
+# install in your virtual environment
+pip install -e .
+
+#launch gymbridge 
+ros2 launch simulator gym_bridge

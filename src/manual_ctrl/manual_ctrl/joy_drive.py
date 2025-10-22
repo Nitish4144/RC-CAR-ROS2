@@ -40,7 +40,7 @@ class SimpleCarController(Node):
             
             # 1. Calculate Speed (Linear): Maps [-1.0, 1.0] input to [-MAX_SPEED, MAX_SPEED]
             # Assumes stick up/down maps to forward/backward speed
-            self.current_speed = ((1+raw_throttle_input)/2) * self.MAX_SPEED
+            self.current_speed = ((raw_throttle_input)/2) * self.MAX_SPEED
 
             # 2. Calculate Steering Angle (Angular): Maps [-1.0, 1.0] input to [-MAX_STEERING_ANGLE, MAX_STEERING_ANGLE]
             steering_magnitude = abs(raw_steering_input)

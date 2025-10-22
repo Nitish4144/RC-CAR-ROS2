@@ -8,7 +8,7 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, Twist, TransformStamped, Transform
 from ackermann_msgs.msg import AckermannDriveStamped
 from tf2_ros import TransformBroadcaster
-import gym
+import gymnasium as gym
 import numpy as np
 from transforms3d import euler
 
@@ -46,7 +46,8 @@ class GymBridge(Node):
         self.declare_parameter('kb_teleop')
 
         # Handle multi-agent (ego/opponent) setup
-        num_agents = self.get_parameter('num_agent').value
+        # num_agents = self.get_parameter('num_agent').value
+        num_agents =1
         if num_agents not in [1, 2] or not isinstance(num_agents, int):
             raise ValueError('num_agents should be either 1 or 2 and int.')
 
@@ -125,8 +126,16 @@ class GymBridge(Node):
             self.opp_drive_published = False
 
         # Subscribers for drive commands, resets, and teleop (keyboard control)
+        # self.ego_drive_sub = self.create_subscription(
+        #     AckermannDriveStamped, ego_drive_topic, self.drive_callback, 10)
+        # Ego drive subscription (existing)
         self.ego_drive_sub = self.create_subscription(
             AckermannDriveStamped, ego_drive_topic, self.drive_callback, 10)
+
+        # Additional drive subscription (e.g., from joystick node)
+        self.joy_drive_sub = self.create_subscription(
+            AckermannDriveStamped, 'ackermann_cmd', self.joy_drive_callback, 10)
+
         self.ego_reset_sub = self.create_subscription(
             PoseWithCovarianceStamped, '/initialpose', self.ego_reset_callback, 10)
         if self.has_opp:
