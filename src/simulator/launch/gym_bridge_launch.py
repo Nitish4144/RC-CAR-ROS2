@@ -94,26 +94,40 @@
 #     return ld
 
 #!/usr/bin/env python3
+import yaml
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, Command
 from launch_ros.substitutions import FindPackageShare
 from launch.conditions import IfCondition
+from launch.substitutions import PythonExpression
 from ament_index_python.packages import get_package_share_directory
 import os
 
 
 def generate_launch_description():
     # Get package directory
-    pkg_share = FindPackageShare('simulator').find('simulator')
+    # pkg_share = FindPackageShare('simulator').find('simulator')
+    pkg_share = get_package_share_directory('simulator')
+
     
     # Paths to files
     ego_xacro_file = os.path.join(pkg_share, 'launch', 'ego_racecar.xacro')
     rviz_config_file = os.path.join(pkg_share, 'launch', 'gym_bridge.rviz')
     params_file = os.path.join(pkg_share, 'config', 'sim.yaml')
     default_map = os.path.join(pkg_share, 'maps', 'levine')
-    
+
+    config = os.path.join(
+         get_package_share_directory('simulator'),
+         'config',
+         'sim.yaml'
+         )
+    config_dict = yaml.safe_load(open(config, 'r'))
+    has_opp = config_dict['gym_bridge']['ros__parameters']['num_agent'] > 1
+    teleop = config_dict['gym_bridge']['ros__parameters']['kb_teleop']
+
+
     # Declare launch arguments
     map_path_arg = DeclareLaunchArgument(
         'map_path',
@@ -167,7 +181,10 @@ def generate_launch_description():
         parameters=[
             {
                 # FIX: Use a list to concatenate LaunchConfiguration and string literal
-                'yaml_filename': [map_path, '.yaml'],
+                # 'yaml_filename': [map_path, '.yaml'],
+
+                'yaml_filename': PythonExpression(["'", map_path, ".yaml'"]),
+
                 'topic_name': 'map',
                 'frame_id': 'map',
                 'use_sim_time': False
