@@ -24,6 +24,7 @@ class F1TenthSimulator:
         self.scan_fov = scan_fov
         self.scan_beams = scan_beams
         self.timestep = timestep
+        self.wheelbase =0.33 #dist from front to rear axle
         self.obs = {
             "poses_x": np.zeros(num_agents),
             "poses_y": np.zeros(num_agents),
@@ -37,15 +38,61 @@ class F1TenthSimulator:
     def reset(self):
         return self.obs
 
+    # def step(self, actions):
+    #     import numpy as np
+    #     steer, throttle = actions[0]
+    #     for i in range(self.num_agents):
+    #         self.obs["poses_theta"][i] += steer * 0.05
+    #         self.obs["poses_x"][i] += np.cos(self.obs["poses_theta"][i]) * throttle * 0.1
+    #         self.obs["poses_y"][i] += np.sin(self.obs["poses_theta"][i]) * throttle * 0.1
+    #         self.obs["linear_vels_x"][i] = throttle
+    #         self.obs["ang_vels_z"][i] = steer * 2.0
+    #     return self.obs, 0.0, False, {}
     def step(self, actions):
         import numpy as np
+        
+        # Get timestep from __init__
+        dt = self.timestep
+
         steer, throttle = actions[0]
+        
         for i in range(self.num_agents):
-            self.obs["poses_theta"][i] += steer * 0.05
-            self.obs["poses_x"][i] += np.cos(self.obs["poses_theta"][i]) * throttle * 0.1
-            self.obs["poses_y"][i] += np.sin(self.obs["poses_theta"][i]) * throttle * 0.1
+            # Get current state
+            current_x = self.obs["poses_x"][i]
+            current_y = self.obs["poses_y"][i]
+            current_theta = self.obs["poses_theta"][i]
+            
+            # --- Correct Kinematic Model ---
+            # v = throttle (speed)
+            # delta = steer (steering angle)
+            # L = self.wheelbase
+            
+            # 1. Calculate the angular velocity (omega)
+            if abs(throttle) > 0.01: # Only turn if moving
+                # omega = v * tan(delta) / L
+                omega = (throttle * np.tan(steer)) / self.wheelbase
+            else:
+                omega = 0.0
+
+            # 2. Update heading (theta)
+            new_theta = current_theta + (omega * dt)
+            
+            # Normalize theta to be between -pi and pi
+            new_theta = np.arctan2(np.sin(new_theta), np.cos(new_theta))
+
+            # 3. Update position (x, y)
+            new_x = current_x + (throttle * np.cos(new_theta) * dt)
+            new_y = current_y + (throttle * np.sin(new_theta) * dt)
+            
+            # --- Update the observation dictionary ---
+            self.obs["poses_theta"][i] = new_theta
+            self.obs["poses_x"][i] = new_x
+            self.obs["poses_y"][i] = new_y
+            
+            # Update odom/TF outputs
             self.obs["linear_vels_x"][i] = throttle
-            self.obs["ang_vels_z"][i] = steer * 2.0
+            self.obs["ang_vels_z"][i] = omega # Publish the *calculated* angular velocity
+
         return self.obs, 0.0, False, {}
 
     def render(self):
