@@ -25,7 +25,7 @@ class PS4Controller(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    joystick = PS4Controller(rate=60)
+    joystick = PS4Controller(rate=50)
     rclpy.spin(joystick)
     joystick.destroy_node()
     rclpy.shutdown()
