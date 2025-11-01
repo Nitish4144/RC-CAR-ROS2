@@ -15,7 +15,7 @@
 
 ### 3. `motor_signals`
 - Subscribes to `AckermannDriveStamped` commands.
-- Converts drive commands into PWM signals using `pigpio`.
+- Converts drive commands into PWM signals using `gpiozero`.
 - Controls GPIO pins for the ESC (speed controller) and the steering servo.
 - Handles initialization and safe shutdown with neutral signals.
 run the following command to start the pigpiod daemon and the ros2 joystick reades:
@@ -23,8 +23,8 @@ run the following command to start the pigpiod daemon and the ros2 joystick read
 ## To launch 
 ```bash
 sudo apt update 
-sudo pigpiod #requires raspi os for controls; runs on pc without control ability 
-#rm -rf install log build --> to remove previous files
+sudo apt install python3-gpiozero #requires raspi os for controls; runs on pc without control ability 
+rm -rf install log build 
 colcon build 
 source install/setup.bash
 ros2 run joy joy_node

@@ -24,7 +24,7 @@ class SimpleCarController(Node):
         self.MAX_SPEED = 3.0           # Max linear speed in meters/second
         self.MAX_STEERING_ANGLE = 0.52 # Max steering angle in radians (approx 30 degrees)
         
-        self.timer = self.create_timer(1.0 / 60.0, self.publish_commands) # 60Hz update
+        self.timer = self.create_timer(1.0 / 50.0, self.publish_commands) # 50Hz update
 
     def joy_callback(self, msg):
         # Safety check: Ensure the message has enough axes to read

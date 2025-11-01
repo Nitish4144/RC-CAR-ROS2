@@ -8,6 +8,7 @@ import busio
 from adafruit_ssd1306 import SSD1306_I2C
 from PIL import Image, ImageDraw
 
+
 class OLEDEyes(Node):
     def __init__(self):
         super().__init__('oled_eyes_node')
@@ -60,6 +61,7 @@ class OLEDEyes(Node):
 
     def update_display(self):
         now = time.time()
+        self.get_logger().info("In update display\n")
 
         if now - self.last_cmd_time > 10:
             # Random motion every 2–3 sec if idle
@@ -85,6 +87,14 @@ class OLEDEyes(Node):
 
         self.draw_eye(self.center_x, self.center_y, self.eye_w, self.eye_h)
 
+    def shutdown(self):
+        """Clean shutdown - clear the OLED display"""
+        self.get_logger().info("Shutting down OLED Eyes... 👋")
+        self.display.fill(0)
+        self.display.show()
+        self.get_logger().info("OLED cleared ✅")
+
+
 def main(args=None):
     rclpy.init(args=args)
     node = OLEDEyes()
@@ -93,8 +103,10 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        node.shutdown()  # ← Clear display on exit
         node.destroy_node()
         rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()
