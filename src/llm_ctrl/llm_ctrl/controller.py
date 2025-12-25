@@ -40,7 +40,7 @@ def parse_drive_command(command: str) -> Dict[str, Any]:
     into Ackermann drive parameters.
     """
     response = ollama.chat(
-        model="llama3.2",
+        model="llama3.2:1b",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": command},
@@ -54,7 +54,7 @@ def parse_drive_command(command: str) -> Dict[str, Any]:
     except json.JSONDecodeError:
         # Very simple fallback: strip code fences if present
         cleaned = content.strip()
-        if cleaned.startswith("```
+        if cleaned.startswith("```"):
             cleaned = cleaned.strip("`")
             # Remove possible "json" language marker
             cleaned = cleaned.replace("json", "", 1).strip()
