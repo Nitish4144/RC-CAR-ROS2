@@ -18,10 +18,13 @@ SERVO_RANGE_US = 500
 MAX_STEERING_RAD = 0.52
 
 # ESC parameters - BIDIRECTIONAL
-ESC_REVERSE_MAX_US = 1300    # Max reverse (was 1000, now 1300 for slower)
-ESC_NEUTRAL_US = 1500       # Neutral - NO MOVEMENT
-ESC_FORWARD_MAX_US = 1700   # Max forward (was 2000, now 1700 for slower)
-MAX_SPEED_MPS = 1.0         # Reduced max speed (was 3.0)
+ESC_REVERSE_MAX_US1= 1000    # Max reverse (was 1000, now 1300 for slower)
+      # Neutral - NO MOVEMENT
+ESC_FORWARD_MAX_US1 = 2000 
+ESC_REVERSE_MAX_US = 1000    # Max reverse (was 1000, now 1300 for slower)
+     # Neutral - NO MOVEMENT
+ESC_FORWARD_MAX_US = 1500 # Max forward (was 2000, now 1700 for slower)
+MAX_SPEED_MPS = 1        # Reduced max speed (was 3.0)
 
 PWM_FREQUENCY = 50  # 50 Hz
 
@@ -35,7 +38,7 @@ class RCCarPWMDriver(Node):
             self.servo_pwm = PWMOutputDevice(SERVO_GPIO_PIN, frequency=PWM_FREQUENCY)
             
             # Start with neutral signals
-            self.esc_pwm.value = self._us_to_value(ESC_NEUTRAL_US)
+            self.esc_pwm.value = self._us_to_value(ESC_REVERSE_US)
             self.servo_pwm.value = self._us_to_value(SERVO_CENTER_US)
             
             self.get_logger().info("GPIO PWM initialized successfully with gpiozero")
@@ -66,11 +69,9 @@ class RCCarPWMDriver(Node):
         try:
             self.get_logger().info("ESC Calibration Phase 1: Max Forward")
             self.esc_pwm.value = self._us_to_value(ESC_FORWARD_MAX_US)
-            time.sleep(1)
+            time.sleep(5)
             
-            self.get_logger().info("ESC Calibration Phase 2: Max Reverse")
-            self.esc_pwm.value = self._us_to_value(ESC_REVERSE_MAX_US)
-            time.sleep(1)
+            
             
             self.get_logger().info("ESC Calibration Phase 3: Neutral")
             self.esc_pwm.value = self._us_to_value(ESC_NEUTRAL_US)
@@ -106,11 +107,8 @@ class RCCarPWMDriver(Node):
         if speed_mps > 0:
             # Forward: 0 to MAX_SPEED_MPS → 1500 to 1700 us
             pwm = self.map_range(speed_mps, 0.0, MAX_SPEED_MPS, 
-                                ESC_NEUTRAL_US, ESC_FORWARD_MAX_US)
-        elif speed_mps < 0:
-            # Reverse: -MAX_SPEED_MPS to 0 → 1300 to 1500 us
-            pwm = self.map_range(speed_mps, -MAX_SPEED_MPS, 0.0, 
-                                ESC_REVERSE_MAX_US, ESC_NEUTRAL_US)
+                                ESC_REVERSE_US, ESC_FORWARD_MAX_US)
+        
         else:
             # Stop: neutral
             pwm = ESC_NEUTRAL_US
@@ -165,7 +163,7 @@ class RCCarPWMDriver(Node):
             self.get_logger().info("Shutting down - setting neutral positions...")
             
             # Set neutral (STOP)
-            self.esc_pwm.value = self._us_to_value(ESC_NEUTRAL_US)
+            self.esc_pwm.value = self._us_to_value(ESC_REVERSE_US)
             self.servo_pwm.value = self._us_to_value(SERVO_CENTER_US)
             
             time.sleep(0.5)
