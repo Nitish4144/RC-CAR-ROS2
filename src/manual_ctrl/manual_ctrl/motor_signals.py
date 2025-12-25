@@ -74,7 +74,7 @@ class RCCarPWMDriver(Node):
             
             
             self.get_logger().info("ESC Calibration Phase 3: Neutral")
-            self.esc_pwm.value = self._us_to_value(ESC_NEUTRAL_US)
+            self.esc_pwm.value = self._us_to_value(ESC_REVERSE_US)
             time.sleep(1)
             
             self.calibrating = False
@@ -111,7 +111,7 @@ class RCCarPWMDriver(Node):
         
         else:
             # Stop: neutral
-            pwm = ESC_NEUTRAL_US
+            pwm = ESC_REVERSE_US
         
         return int(pwm)
     
