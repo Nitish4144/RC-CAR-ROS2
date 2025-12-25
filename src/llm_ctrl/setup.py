@@ -20,7 +20,7 @@ setup(
     entry_points={
         'console_scripts': [
             'llm_drive = llm_ctrl.llm_drive:main',
-            'model  = llm_ctrl.controller:main',
+            'model = llm_ctrl.controller:main',
         ],
     },
 )
