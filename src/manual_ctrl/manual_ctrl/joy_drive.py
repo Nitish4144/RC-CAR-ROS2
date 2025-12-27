@@ -35,7 +35,7 @@ class SimpleCarController(Node):
             # Axis 0: Left/Right Stick X-axis (for Steering)
             # Axis 4: Trigger/Stick (for Throttle/Speed) - Used based on your original code
             
-            raw_steering_input = msg.axes[3]
+            raw_steering_input = msg.axes[2]
             raw_throttle_input = msg.axes[1] 
             
             # 1. Calculate Speed (Linear): Maps [-1.0, 1.0] input to [-MAX_SPEED, MAX_SPEED]
