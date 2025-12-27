@@ -4,73 +4,107 @@ import rclpy
 from rclpy.node import Node
 from ackermann_msgs.msg import AckermannDriveStamped
 import numpy as np
-from gpiozero import PWMOutputDevice
 import time
 import threading
+import smbus
 
-# GPIO pins (BCM numbering)
-ESC_GPIO_PIN = 18 
-SERVO_GPIO_PIN = 17
+# ================= PCA9685 CONFIG =================
+I2C_ADDR = 0x40
+ESC_CH = 0
+SERVO_CH = 1
 
-# Servo parameters
+MODE1 = 0x00
+PRESCALE = 0xFE
+LED0_ON_L = 0x06
+
+# ================= SERVO / ESC PARAMS =================
 SERVO_CENTER_US = 1500
 SERVO_RANGE_US = 500
 MAX_STEERING_RAD = 0.52
 
-# ===== ESC PARAMETERS (UNI-DIRECTIONAL) =====
-ESC_NEUTRAL_US = 1000        # STOP
-ESC_FORWARD_MAX_US = 1700   # MAX FORWARD
-MAX_SPEED_MPS = 0.5         # Reduced speed
+ESC_NEUTRAL_US = 1000
+ESC_FORWARD_MAX_US = 1700
+ESC_CALIB_MAX_US = 2000
+MAX_SPEED_MPS = 0.5
 
-PWM_FREQUENCY = 50  # 50Hz
+PWM_FREQ = 50  # Hz
+
+# =====================================================
 
 class RCCarPWMDriver(Node):
     def __init__(self):
         super().__init__('rc_car_pwm_driver')
 
-        try:
-            # PWM devices
-            self.esc_pwm = PWMOutputDevice(ESC_GPIO_PIN, frequency=PWM_FREQUENCY)
-            self.servo_pwm = PWMOutputDevice(SERVO_GPIO_PIN, frequency=PWM_FREQUENCY)
-            # Safe startup
-            self.esc_pwm.value = self._us_to_value(ESC_NEUTRAL_US)
-            self.servo_pwm.value = self._us_to_value(SERVO_CENTER_US)
+        self.bus = smbus.SMBus(1)
 
-            self.get_logger().info(
-                f"ESC Uni-directional | Neutral={ESC_NEUTRAL_US}us "
-                f"Max={ESC_FORWARD_MAX_US}us"
-            )
+        # 🔧 FIX: init PCA9685 properly
+        self._init_pca9685()
+        self.set_pwm_freq(PWM_FREQ)
 
-            # ESC calibration
-            self.calibrating = True
+        # Safe startup
+        self.set_pwm_us(ESC_CH, ESC_NEUTRAL_US)
+        self.set_pwm_us(SERVO_CH, SERVO_CENTER_US)
 
-            # ROS subscription
-            self.state = 0
-            self.get_logger().info("Starting ESC calibration...")
-            threading.Thread(target=self._calibrate_esc, daemon=True).start()
-            
-            # Subscribe to drive commands
-            self.subscription = self.create_subscription(
-                AckermannDriveStamped,
-                'ackermann_cmd',
-                self.drive_callback,
-                10
-            )
+        self.calibrating = True
+        self.state = 0
 
-        except Exception as e:
-            self.get_logger().error(f"Initialization failed: {e}")
-            raise
+        self.get_logger().info("Starting ESC calibration...")
+        threading.Thread(target=self._calibrate_esc, daemon=True).start()
 
-    # ===== ESC CALIBRATION =====
+        self.subscription = self.create_subscription(
+            AckermannDriveStamped,
+            'ackermann_cmd',
+            self.drive_callback,
+            10
+        )
+
+    # ================= PCA9685 INIT =================
+    def _init_pca9685(self):
+        # Reset
+        self.bus.write_byte_data(I2C_ADDR, MODE1, 0x00)
+        time.sleep(0.01)
+
+        # Auto-increment + wake
+        self.bus.write_byte_data(I2C_ADDR, MODE1, 0x20)
+        time.sleep(0.01)
+
+        self.get_logger().info("PCA9685 initialized")
+
+    # ================= PCA9685 LOW LEVEL =================
+    def write(self, reg, val):
+        self.bus.write_byte_data(I2C_ADDR, reg, val)
+
+    def set_pwm_freq(self, freq):
+        prescale = int(25000000 / (4096 * freq) - 1)
+        oldmode = self.bus.read_byte_data(I2C_ADDR, MODE1)
+
+        self.write(MODE1, (oldmode & 0x7F) | 0x10)  # sleep
+        self.write(PRESCALE, prescale)
+        self.write(MODE1, oldmode)
+        time.sleep(0.005)
+        self.write(MODE1, oldmode | 0x80)
+
+        self.get_logger().info(f"PCA9685 PWM freq set to {freq} Hz")
+
+    def set_pwm_us(self, channel, us):
+        ticks = int(us * 4096 / 20000)
+        base = LED0_ON_L + 4 * channel
+
+        self.write(base, 0)                 # ON_L
+        self.write(base + 1, 0)             # ON_H
+        self.write(base + 2, ticks & 0xFF)  # OFF_L
+        self.write(base + 3, ticks >> 8)    # OFF_H
+
+    # ================= ESC CALIBRATION =================
     def _calibrate_esc(self):
         try:
-            self.get_logger().info("ESC Calibration: Max Forward")
-            self.esc_pwm.value = self._us_to_value(ESC_FORWARD_MAX_US)
-            time.sleep(5)
+            
 
-            self.get_logger().info("ESC Calibration: Neutral (1000us)")
-            self.esc_pwm.value = self._us_to_value(ESC_NEUTRAL_US)
-            time.sleep(1)
+            self.state = 1
+            self.get_logger().info("ESC CAL: NEUTRAL")
+            self.set_pwm_us(ESC_CH, ESC_NEUTRAL_US)
+            time.sleep(2)
+
             self.calibrating = False
             self.get_logger().info("✓ ESC calibration complete")
 
@@ -78,25 +112,18 @@ class RCCarPWMDriver(Node):
             self.get_logger().error(f"ESC calibration error: {e}")
             self.calibrating = False
 
-    def _us_to_value(self, pulse_us):
-        """Convert microseconds to gpiozero PWM value"""
-        return pulse_us / 20000.0
-
+    # ================= MAPPING =================
     def map_range(self, value, in_min, in_max, out_min, out_max):
         value = np.clip(value, in_min, in_max)
         return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
-    # ===== SPEED CONVERSION (FORWARD ONLY) =====
     def convert_speed_to_pwm(self, speed_mps):
         speed_mps = np.clip(speed_mps, 0.0, MAX_SPEED_MPS)
-
-        pwm = self.map_range(
+        return int(self.map_range(
             speed_mps,
             0.0, MAX_SPEED_MPS,
             ESC_NEUTRAL_US, ESC_FORWARD_MAX_US
-        )
-
-        return int(pwm)
+        ))
 
     def convert_steering_to_pwm(self, angle_rad):
         return int(self.map_range(
@@ -106,41 +133,26 @@ class RCCarPWMDriver(Node):
             SERVO_CENTER_US + SERVO_RANGE_US
         ))
 
+    # ================= ROS CALLBACK =================
     def drive_callback(self, msg):
         if self.calibrating:
-            self.get_logger().info(f"Ignoring commands during calibration...{self.state}")
             return
 
-        try:
-            speed_pwm = self.convert_speed_to_pwm(msg.drive.speed)
-            steering_pwm = self.convert_steering_to_pwm(msg.drive.steering_angle)
+        speed_pwm = self.convert_speed_to_pwm(msg.drive.speed)
+        steer_pwm = self.convert_steering_to_pwm(msg.drive.steering_angle)
 
-            self.esc_pwm.value = self._us_to_value(speed_pwm)
-            self.servo_pwm.value = self._us_to_value(steering_pwm)
-
-            self.get_logger().info(
-                f"FORWARD | Speed={msg.drive.speed:.2f} → {speed_pwm}us | "
-                f"Steering={steering_pwm}us"
-            )
-
-        except Exception as e:
-            self.get_logger().error(f"Drive callback error: {e}")
+        self.set_pwm_us(ESC_CH, speed_pwm)
+        self.set_pwm_us(SERVO_CH, steer_pwm)
 
     def on_shutdown(self):
-        try:
-            self.get_logger().info("Shutdown: neutral")
-            self.esc_pwm.value = self._us_to_value(ESC_NEUTRAL_US)
-            self.servo_pwm.value = self._us_to_value(SERVO_CENTER_US)
-            time.sleep(0.5)
-            self.esc_pwm.off()
-            self.servo_pwm.off()
-        except Exception as e:
-            self.get_logger().error(f"Shutdown error: {e}")
+        self.set_pwm_us(ESC_CH, ESC_NEUTRAL_US)
+        self.set_pwm_us(SERVO_CH, SERVO_CENTER_US)
+        time.sleep(0.5)
 
+# ================= MAIN =================
 def main(args=None):
     rclpy.init(args=args)
     node = RCCarPWMDriver()
-
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
@@ -152,3 +164,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
