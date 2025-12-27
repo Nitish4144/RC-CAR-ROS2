@@ -9,7 +9,7 @@ import time
 import threading
 
 # GPIO pins (BCM numbering)
-ESC_GPIO_PIN = 18
+ESC_GPIO_PIN = 18 
 SERVO_GPIO_PIN = 17
 
 # Servo parameters
@@ -22,7 +22,7 @@ ESC_NEUTRAL_US = 1000        # STOP
 ESC_FORWARD_MAX_US = 1700   # MAX FORWARD
 MAX_SPEED_MPS = 0.5         # Reduced speed
 
-PWM_FREQUENCY = 50  # 50 Hz
+PWM_FREQUENCY = 50  # 50Hz
 
 class RCCarPWMDriver(Node):
     def __init__(self):
@@ -32,7 +32,6 @@ class RCCarPWMDriver(Node):
             # PWM devices
             self.esc_pwm = PWMOutputDevice(ESC_GPIO_PIN, frequency=PWM_FREQUENCY)
             self.servo_pwm = PWMOutputDevice(SERVO_GPIO_PIN, frequency=PWM_FREQUENCY)
-
             # Safe startup
             self.esc_pwm.value = self._us_to_value(ESC_NEUTRAL_US)
             self.servo_pwm.value = self._us_to_value(SERVO_CENTER_US)
@@ -44,11 +43,13 @@ class RCCarPWMDriver(Node):
 
             # ESC calibration
             self.calibrating = True
-            threading.Thread(
-                target=self._calibrate_esc, daemon=True
-            ).start()
 
             # ROS subscription
+            self.state = 0
+            self.get_logger().info("Starting ESC calibration...")
+            threading.Thread(target=self._calibrate_esc, daemon=True).start()
+            
+            # Subscribe to drive commands
             self.subscription = self.create_subscription(
                 AckermannDriveStamped,
                 'ackermann_cmd',
@@ -70,7 +71,6 @@ class RCCarPWMDriver(Node):
             self.get_logger().info("ESC Calibration: Neutral (1000us)")
             self.esc_pwm.value = self._us_to_value(ESC_NEUTRAL_US)
             time.sleep(1)
-
             self.calibrating = False
             self.get_logger().info("✓ ESC calibration complete")
 
@@ -108,6 +108,7 @@ class RCCarPWMDriver(Node):
 
     def drive_callback(self, msg):
         if self.calibrating:
+            self.get_logger().info(f"Ignoring commands during calibration...{self.state}")
             return
 
         try:
