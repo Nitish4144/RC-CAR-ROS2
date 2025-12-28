@@ -6,7 +6,7 @@ from rclpy.qos import QoSProfile
 
 import threading
 
-from .llm_controller import parse_drive_command
+from .controller import parse_drive_command
 
 
 class LlmAckermannNode(Node):

@@ -20,7 +20,7 @@ LED0_ON_L = 0x06
 # ================= SERVO / ESC PARAMS =================
 SERVO_CENTER_US = 1500
 SERVO_RANGE_US = 500
-MAX_STEERING_RAD = 0.52
+MAX_STEERING_RAD = 0.27 # 15.5 deg
 
 ESC_NEUTRAL_US = 1000
 ESC_FORWARD_MAX_US = 1700
@@ -142,7 +142,9 @@ class RCCarPWMDriver(Node):
         steer_pwm = self.convert_steering_to_pwm(msg.drive.steering_angle)
 
         self.set_pwm_us(ESC_CH, speed_pwm)
+        self.get_logger().info(f"speed-pwm:{speed_pwm}...")
         self.set_pwm_us(SERVO_CH, steer_pwm)
+        self.get_logger().info(f"steering-pwm:{steer_pwm}...")
 
     def on_shutdown(self):
         self.set_pwm_us(ESC_CH, ESC_NEUTRAL_US)

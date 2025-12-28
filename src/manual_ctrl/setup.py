@@ -21,7 +21,7 @@ setup(
     maintainer='YOUR_NAME',
     maintainer_email='YOUR_EMAIL@example.com',
     description='Manual control nodes for RC Car in ROS2',
-    license='TODO: License declaration',
+    license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

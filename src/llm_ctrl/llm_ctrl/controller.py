@@ -1,6 +1,5 @@
 import json
 from typing import Dict, Any
-
 import ollama  # pip install ollama
 
 
@@ -12,15 +11,15 @@ You MUST respond with ONLY a JSON object (no text, no explanation).
 
 The JSON schema is strictly:
 {
-  "speed": float,                    # forward speed in m/s
-  "steering_angle": float,           # radians, +left, -right
-  "steering_angle_velocity": float,  # radians/s
-  "acceleration": float,             # m/s^2
-  "jerk": float                      # m/s^3
+  "speed": float,
+  "steering_angle": float,
+  "steering_angle_velocity": float,
+  "acceleration": float,
+  "jerk": float
 }
 
 Rules:
-- If the user says "set velocity to X", set "speed" = X (float).
+- If the user says "set velocity to X", set speed = X (float).
 - If no speed is mentioned, keep speed = 0.0.
 - If no steering command is mentioned, steering_angle = 0.0.
 - If the user says "turn left/right", set steering_angle to a small angle:
@@ -35,38 +34,65 @@ Output ONLY valid JSON, no markdown, no comments, no surrounding text.
 
 
 def parse_drive_command(command: str) -> Dict[str, Any]:
-    """
-    Call llama3.2 via Ollama to convert a natural language command
-    into Ackermann drive parameters.
-    """
     response = ollama.chat(
         model="llama3.2:1b",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": command},
         ],
+        format={
+            "type": "object",
+            "properties": {
+                "speed": {"type": "number"},
+                "steering_angle": {"type": "number"},
+                "steering_angle_velocity": {"type": "number"},
+                "acceleration": {"type": "number"},
+                "jerk": {"type": "number"},
+            },
+            "required": [
+                "speed",
+                "steering_angle",
+                "steering_angle_velocity",
+                "acceleration",
+                "jerk",
+            ],
+        },
     )
 
     content = response["message"]["content"]
-    # Safety: sometimes the model may add backticks etc., so try to extract JSON
-    try:
-        data = json.loads(content)
-    except json.JSONDecodeError:
-        # Very simple fallback: strip code fences if present
-        cleaned = content.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.strip("`")
-            # Remove possible "json" language marker
-            cleaned = cleaned.replace("json", "", 1).strip()
-        data = json.loads(cleaned)
+    data = json.loads(content)
 
-    # Ensure all keys exist
-    default = {
+    defaults = {
         "speed": 0.0,
         "steering_angle": 0.0,
         "steering_angle_velocity": 0.0,
         "acceleration": 0.0,
         "jerk": 0.0,
     }
-    default.update(data)
-    return default
+    defaults.update(data)
+    return defaults
+
+
+def main():
+    print("\n🚗 Ackermann Command Translator (Ollama llama3.2:1b)")
+    print("Type a driving command, or 'q' to quit.\n")
+
+    while True:
+        command = input("Command: ").strip()
+        if command.lower() == "q":
+            break
+
+        if not command:
+            continue
+
+        try:
+            result = parse_drive_command(command)
+            print("\nParsed command →")
+            print(json.dumps(result, indent=2))
+            print()
+        except Exception as e:
+            print(f"\nError parsing command: {e}\n")
+
+
+if __name__ == "__main__":
+    main()
