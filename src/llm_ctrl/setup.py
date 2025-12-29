@@ -14,7 +14,8 @@ setup(
             'launch/controller.launch.py',
             'launch/llm_drive.launch.py',
             'launch/llm_ctrl.launch.py',
-            'launch/motor_signals.launch.py', # Include your combined launch file if present
+            'launch/motor_signals.launch.py',
+            'launch/input.launch.py', # Include your combined launch file if present
         ]),
     ],
     install_requires=['setuptools'],
@@ -29,6 +30,7 @@ setup(
             'controller = llm_ctrl.controller:main',
             'llm_drive = llm_ctrl.llm_drive:main',
             'motor_signals = llm_ctrl.motor_signals:main',
+            'input = llm_ctrl.input:main',
         ],
     },
 )
