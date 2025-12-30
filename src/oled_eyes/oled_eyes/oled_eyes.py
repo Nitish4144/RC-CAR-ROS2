@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from ackermann_msgs.msg import AckermannDrive
+from ackermann_msgs.msg import AckermannDriveStamped
 import time
 import board
 import busio
@@ -48,9 +48,9 @@ class OLEDEyes(Node):
         self.reopener = None
         self.random_time = self.create_timer(3, self.rand)
 
-    def callback(self, msg: AckermannDrive):
-        self.steering = msg.steering_angle  # typically between -0.4 and 0.4
-        self.throttle = msg.speed
+    def callback(self, msg: AckermannDriveStamped):
+        self.steering = msg.drive.steering_angle  # typically between -0.4 and 0.4
+        self.throttle = msg.drive.speed
         self.last_cmd_time = time.time()
         self.random_mode = False
 
