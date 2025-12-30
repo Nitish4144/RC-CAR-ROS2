@@ -9,6 +9,7 @@ from adafruit_ssd1306 import SSD1306_I2C
 from PIL import Image, ImageDraw
 import random
 
+#written by aarush
 
 class OLEDEyes(Node):
     def __init__(self):
