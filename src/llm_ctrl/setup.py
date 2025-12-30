@@ -12,7 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', [
             'launch/controller.launch.py',
-            'launch/llm_drive.launch.py',
+            'launch/json_to_ackermann.launch.py',
             'launch/llm_ctrl.launch.py',
             'launch/motor_signals.launch.py',
             'launch/input.launch.py', # Include your combined launch file if present
@@ -28,7 +28,7 @@ setup(
     entry_points={
         'console_scripts': [
             'controller = llm_ctrl.controller:main',
-            'llm_drive = llm_ctrl.llm_drive:main',
+            'json_to_ackermann = llm_ctrl.json_to_ackermann:main',
             'motor_signals = llm_ctrl.motor_signals:main',
             'input = llm_ctrl.input:main',
         ],
