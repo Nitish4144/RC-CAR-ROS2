@@ -3,16 +3,11 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     return LaunchDescription([
+        
         Node(
             package='llm_ctrl',
-            executable='controller',
-            name='controller_node',
-            output='screen'
-        ),
-        Node(
-            package='llm_ctrl',
-            executable='llm_drive',
-            name='llm_drive_node',
+            executable='json_to_ackermann',
+            name='json_to_ackermann_node',
             output='screen'
         ),
         Node(
