@@ -12,12 +12,13 @@ SERVO_GPIO_PIN = 17
 
 # Servo parameters
 SERVO_CENTER_US = 1500
-SERVO_RANGE_US = 500
-MAX_STEERING_RAD = 0.52
+SERVO_RANGE_US = 250
+MAX_STEERING_RAD = 1
 
 # ===== ESC PARAMETERS (UNI-DIRECTIONAL) =====
+ESC_STAGE0_US =1200
 ESC_NEUTRAL_US = 1000        # STOP
-ESC_STAGE1_US = 1250         # End of first half travel
+ESC_STAGE1_US = 1350         # End of first half travel
 ESC_FORWARD_MAX_US = 1600    # Max output for second half travel
 MAX_SPEED_MPS = 0.5          # Command range scaling
 
@@ -91,16 +92,22 @@ class RCCarPWMDriver(Node):
         # Normalize to 0…1 joystick-equivalent travel
         t = speed_mps / MAX_SPEED_MPS
 
-        if t <= 0.5:
+        if t <= 0.35:
             # First half → 1000 → 1250 (gentle ramp)
             pwm = self.map_range(
-                t, 0.0, 0.5,
-                ESC_NEUTRAL_US, ESC_STAGE1_US
+                t, 0.0, 0.35,
+                ESC_NEUTRAL_US, ESC_STAGE0_US
+            )
+        elif t <= 0.65:
+            # First half → 1000 → 1250 (gentle ramp)
+            pwm = self.map_range(
+                t, 0.35, 0.65,
+                ESC_STAGE0_US, ESC_STAGE1_US
             )
         else:
             # Second half → 1250 → 1600 (slower ramp)
             pwm = self.map_range(
-                t, 0.5, 1.0,
+                t, 0.65, 1.0,
                 ESC_STAGE1_US, ESC_FORWARD_MAX_US
             )
 
