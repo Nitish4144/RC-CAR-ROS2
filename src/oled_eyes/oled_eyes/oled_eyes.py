@@ -39,7 +39,7 @@ class OLEDEyes(Node):
         self.throttle = 0.0
 
         # ROS2 subscription
-        self.create_subscription(AckermannDrive, '/ackermann_cmd', self.callback, 10)
+        self.create_subscription(AckermannDriveStamped, '/ackermann_cmd', self.callback, 10)
 
         # Timer for updates
         self.timer = self.create_timer(0.05, self.update_display)
