@@ -7,6 +7,7 @@ import board
 import busio
 from adafruit_ssd1306 import SSD1306_I2C
 from PIL import Image, ImageDraw
+import random
 
 
 class OLEDEyes(Node):
@@ -15,9 +16,10 @@ class OLEDEyes(Node):
 
         # --- OLED Setup ---
         i2c = busio.I2C(board.SCL, board.SDA)
-        self.display = SSD1306_I2C(128, 64, i2c)
+        self.display = SSD1306_I2C(128, 64, i2c, addr=0x3c)
         self.display.fill(0)
         self.display.show()
+        self.is_open = True
 
         # --- Eye parameters ---
         self.center_x = 64
@@ -29,6 +31,7 @@ class OLEDEyes(Node):
         self.border = 6
 
         self.target_x = self.center_x
+        self.target_y = self.center_y
         self.last_cmd_time = time.time()
         self.random_mode = False
         self.steering = 0.0
@@ -39,8 +42,10 @@ class OLEDEyes(Node):
 
         # Timer for updates
         self.timer = self.create_timer(0.05, self.update_display)
-
+        self.blink_timer = self.create_timer(2.0, self.blink)
         self.get_logger().info("OLED Eyes Node Started ✅")
+        self.reopener = None
+        self.random_time = self.create_timer(3, self.rand)
 
     def callback(self, msg: AckermannDrive):
         self.steering = msg.steering_angle  # typically between -0.4 and 0.4
@@ -59,26 +64,46 @@ class OLEDEyes(Node):
         self.display.image(img)
         self.display.show()
 
+    def rand(self):
+        if self.random_mode is True:
+            x = [0, 64, 128]
+            y = [0, 32, 64]
+            rand_x = random.choice(x)
+            rand_y = random.choice(y)
+            self.target_x = rand_x
+            self.target_y = rand_y
+
     def update_display(self):
         now = time.time()
         self.get_logger().info("In update display\n")
 
-        if now - self.last_cmd_time > 10:
+        if now - self.last_cmd_time > 3:
             # Random motion every 2–3 sec if idle
             if not self.random_mode:
                 self.get_logger().info("Entering random motion mode")
-            self.random_mode = True
-
-        if self.random_mode:
-            # Move randomly left/right
-            offset = (time.time() * 100) % 50 - 25
-            target_x = self.center_x + offset
+                self.random_mode = True
+                target_x = self.target_x
+                target_y = self.target_y
+            else:
+                target_x = 64
+                target_y = 32
         else:
-            # Move based on steering
-            target_x = self.center_x + (self.steering * 60)
+            target_x = 64
+            target_y = 32
+
+        half_w = self.eye_w / 2
+        if self.steering != 0:
+            target_x = self.center_x + (128 - self.eye_w) * (abs(self.steering) / self.steering)
+        else:
+            if self.random_mode is False:
+                target_x = 64
+
+        half_w = self.eye_w / 2
+        self.center_x = max(half_w, min(self.center_x, 128 - half_w))
 
         # Smooth transition
-        self.center_x += (target_x - self.center_x) * 0.08
+        self.center_x += (target_x - self.center_x) * 0.15
+        self.center_y += (target_y - self.center_y) * 0.1
 
         # Shrink based on throttle
         scale = max(0.6, 1.0 - abs(self.throttle) * 0.5)
@@ -93,6 +118,15 @@ class OLEDEyes(Node):
         self.display.fill(0)
         self.display.show()
         self.get_logger().info("OLED cleared ✅")
+
+    def blink(self):
+        if self.is_open:
+            self.display.fill(0)
+            self.display.show()
+            self.is_open = False
+        else:
+            self.draw_eye(self.center_x, self.center_y, self.eye_w, self.eye_h)
+            self.is_open = True
 
 
 def main(args=None):
