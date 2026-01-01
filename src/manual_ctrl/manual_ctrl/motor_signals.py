@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import rclpy
 from rclpy.node import Node
 from ackermann_msgs.msg import AckermannDriveStamped
@@ -26,8 +24,9 @@ ESC_NEUTRAL_US = 1000
 ESC_FORWARD_MAX_US = 1600
 ESC_CALIB_MAX_US = 2000
 MAX_SPEED_MPS = 1
-STAGE_1 = 1250   
-STAGE_2 = 1350
+STAGE_1 = 1100
+STAGE_2 = 1300
+STAGE_3 = 1500
 PWM_FREQ = 50  # Hz
 
 # =====================================================
@@ -127,25 +126,31 @@ class RCCarPWMDriver(Node):
 
     def convert_speed_to_pwm(self, speed_mps):
         #speed_mps = np.clip(speed_mps, 0.0, MAX_SPEED_MPS)
-        if(abs(speed_mps/MAX_SPEED_MPS) <= 0.35):
+        if(abs(speed_mps/MAX_SPEED_MPS) <= 0.1):
             return int(self.map_range(
             speed_mps,
             0.0, MAX_SPEED_MPS,
             ESC_NEUTRAL_US, STAGE_1
         ))
-        elif(abs(speed_mps/MAX_SPEED_MPS) <= 0.65):
+        elif(abs(speed_mps/MAX_SPEED_MPS) <= 0.45):
             return int(self.map_range(
             speed_mps,
             0.0, MAX_SPEED_MPS,
             STAGE_1, STAGE_2
         ))
+        elif (abs(speed_mps/MAX_SPEED_MPS) <= 0.75) :
+            return int(self.map_range(
+            speed_mps,
+            0.0, MAX_SPEED_MPS,
+            STAGE_2, STAGE_3
+        ))
         else:
             return int(self.map_range(
             speed_mps,
             0.0, MAX_SPEED_MPS,
-            STAGE_2, ESC_FORWARD_MAX_US
+            STAGE_3, ESC_FORWARD_MAX_US
         ))
-       
+
 
     def convert_steering_to_pwm(self, angle_rad):
         return int(self.map_range(
@@ -188,4 +193,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-
