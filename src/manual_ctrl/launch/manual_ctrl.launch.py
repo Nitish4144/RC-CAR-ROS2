@@ -118,11 +118,11 @@ def generate_launch_description():
     ld.add_action(wall_follow_node)
     
     # LLM Control
-    llm_ctrl_node = Node(
-        package='llm_ctrl',
-        executable='llm_ctrl_node',
-        output='screen'
-    )
-    ld.add_action(llm_ctrl_node)
+   # llm_ctrl_node = Node(
+   #     package='llm_ctrl',
+   #     executable='llm_ctrl_node',
+   #     output='screen'
+   # )
+   # ld.add_action(llm_ctrl_node)
     
     return ld
