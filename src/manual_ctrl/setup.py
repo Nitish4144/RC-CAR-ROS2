@@ -27,7 +27,8 @@ setup(
         'console_scripts': [
             'joy_raw = manual_ctrl.joy_raw:main',
             'joy_drive = manual_ctrl.joy_drive:main',
-            'motor_signals = manual_ctrl.motor_signals:main',
+            'motor_signals = manual_ctrl.motor_signals:main'
+            'ld_ctrl_manual = manual_ctrl.ld_ctrl_manual:main',
         ],
     },
 )
