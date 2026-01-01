@@ -42,20 +42,35 @@ def generate_launch_description():
         output='screen'
     )
     ld.add_action(motor_signals_node)
-    
     # ============================================
-    # LIDAR DRIVER
+    # LIDAR + SLAM MAPPING
     # ============================================
-    ld_ctrl_launch = IncludeLaunchDescription(
+    slam_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
                 FindPackageShare('ld_ctrl'),
                 'launch',
-                'ld_ctrl.launch.py'
+                'slam_async.launch.py'
             ])
         )
     )
-    ld.add_action(ld_ctrl_launch)
+    ld.add_action(slam_launch)
+
+    
+    
+    # ============================================
+    # LIDAR DRIVER
+    # ============================================
+    # ld_ctrl_launch = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(
+    #         PathJoinSubstitution([
+    #             FindPackageShare('ld_ctrl'),
+    #             'launch',
+    #             'ld_ctrl.launch.py'
+    #         ])
+    #     )
+    # )
+    # ld.add_action(ld_ctrl_launch)
     
     # ============================================
     # LIDAR FEEDBACK FOR MANUAL MODE
