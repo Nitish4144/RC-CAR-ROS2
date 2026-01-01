@@ -18,7 +18,7 @@ class LlmAckermannNode(Node):
         qos = QoSProfile(depth=10)
         self.pub = self.create_publisher(
             AckermannDriveStamped,
-            "/cmd_ackermann",
+            "ackermann_cmd",
             qos,
         )
 
