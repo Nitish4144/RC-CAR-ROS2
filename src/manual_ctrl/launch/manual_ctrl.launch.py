@@ -71,4 +71,58 @@ def generate_launch_description():
         }]
     )
     ld.add_action(ld_ctrl_manual_node)
+    
+    # ============================================
+    # SAFETY MONITORING NODE
+    # ============================================
+    safety_node = Node(
+        package='safety_node',
+        executable='safety_node',
+        output='screen',
+        parameters=[{
+            'collision_threshold': 0.3,
+            'warning_threshold': 0.5,
+        }]
+    )
+    ld.add_action(safety_node)
+    
+    # ============================================
+    # AUTONOMOUS NAVIGATION NODES
+    # ============================================
+    
+    # Gap Following
+    gap_follow_node = Node(
+        package='gap_follow',
+        executable='gap_follow_node',
+        output='screen',
+        parameters=[{
+            'linear_velocity': 0.5,
+            'gap_threshold': 0.5,
+            'min_gap_width': 10,
+        }]
+    )
+    ld.add_action(gap_follow_node)
+    
+    # Wall Following
+    wall_follow_node = Node(
+        package='wall_follow',
+        executable='wall_follow_node',
+        output='screen',
+        parameters=[{
+            'target_distance': 0.5,
+            'linear_velocity': 0.3,
+            'kp': 1.0,
+            'wall_side': 'left',
+        }]
+    )
+    ld.add_action(wall_follow_node)
+    
+    # LLM Control
+    llm_ctrl_node = Node(
+        package='llm_ctrl',
+        executable='llm_ctrl_node',
+        output='screen'
+    )
+    ld.add_action(llm_ctrl_node)
+    
     return ld
