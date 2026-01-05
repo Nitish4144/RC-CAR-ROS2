@@ -1,195 +1,211 @@
 #!/usr/bin/env python3
-import rclpy
-from rclpy.node import Node
-from std_msgs.msg import String
+
 import threading
+import time
+import os
+import sys
+import json
 import numpy as np
 import sounddevice as sd
 from faster_whisper import WhisperModel
-import time
-import sys
+from scipy.signal import butter, filtfilt
+from multiprocessing import shared_memory
+
+# ===== Linux keyboard handling =====
 import termios
 import tty
 import select
-from scipy.signal import butter, filtfilt
 
-# RPi optimization
-import os
+# ================== OPTIMIZATION ==================
 os.environ["OMP_NUM_THREADS"] = "4"
 os.environ["CT2_FAST_NATIVE_THREADING"] = "1"
 
-class TextInputNode(Node):
+# ================== CONFIG ==================
+SAMPLE_RATE = 16000
+BLOCK_DURATION = 0.1
+CHANNELS = 1
+FRAMES_PER_BLOCK = int(SAMPLE_RATE * BLOCK_DURATION)
+
+SHM_NAME = "shm"
+SHM_SIZE = 512
+
+# ==================================================
+class TextInputApp:
     def __init__(self):
-        super().__init__('text_input_node')
-        self.publisher_ = self.create_publisher(String, '/text', 10)
-        
-        # CONFIG
-        self.SAMPLE_RATE = 16000
-        self.BLOCK_DURATION = 0.1
-        self.CHANNELS = 1
-        self.FRAMES_PER_BLOCK = int(self.SAMPLE_RATE * self.BLOCK_DURATION)
-        sd.default.samplerate = self.SAMPLE_RATE
-        sd.default.channels = self.CHANNELS
-        
-        self.model = WhisperModel("tiny.en", device="cpu", compute_type="int8")
-        
-        # STATE
-        self.recording_active = threading.Event()
+        # ---------- Shared Memory ----------
+        try:
+            self.shm = shared_memory.SharedMemory(name=SHM_NAME)
+            print(f"🔗 Attached to shared memory: {SHM_NAME}")
+        except FileNotFoundError:
+            self.shm = shared_memory.SharedMemory(
+                create=True, size=SHM_SIZE, name=SHM_NAME
+            )
+            print(f"🆕 Created shared memory: {SHM_NAME}")
+
+        self.shm_buf = self.shm.buf
+        self.shm_lock = threading.Lock()
+
+        # ---------- Audio ----------
+        sd.default.samplerate = SAMPLE_RATE
+        sd.default.channels = CHANNELS
+
+        model = "medium.en"
+        device = "cpu"
+        print(f"→ Loading Whisper model: {model} on {device}")
+        self.model = WhisperModel(model, device=device, compute_type="int8")
+
+        # ---------- State ----------
+        self.recording = threading.Event()
+        self.stop_event = threading.Event()
         self.audio_data = []
         self.audio_lock = threading.Lock()
-        self.stop_event = threading.Event()
-        self.input_mode = 0  # 0=setup, 1=voice, 2=keyboard
+
+        self.input_mode = 0  # 1 = voice, 2 = keyboard
         self.current_text = ""
-        
-    def preprocess_audio(self, audio_array):
-        b, a = butter(4, 300, btype='high', fs=self.SAMPLE_RATE)
-        return filtfilt(b, a, audio_array)
-    
-    def initial_setup(self):
-        """Ask initial mode choice"""
-        print("\n=== TEXT INPUT SELECTOR ===")
-        print("1: 🎤 Voice input")
-        print("2: ⌨️  Keyboard input")
-        
-        old_settings = termios.tcgetattr(sys.stdin)
-        tty.setraw(sys.stdin.fileno())
-        try:
-            while self.input_mode == 0:
-                if select.select([sys.stdin], [], [], 0)[0]:
-                    key = sys.stdin.read(1)
-                    if key == '1':
-                        self.input_mode = 1
-                        print("\n✅ Voice mode selected! ESC to switch")
-                        break
-                    elif key == '2':
-                        self.input_mode = 2
-                        print("\n✅ Keyboard mode selected! ESC to switch")
-                        break
-        finally:
-            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
-    
-    def keyboard_thread(self):
-        """Main keyboard handler with mode switching"""
-        old_settings = termios.tcgetattr(sys.stdin)
-        tty.setraw(sys.stdin.fileno())
-        
-        print(f"\nMode: {'🎤 VOICE' if self.input_mode==1 else '⌨️ KEYBOARD'} | ESC=Toggle | Ctrl+C=Quit")
-        
-        try:
-            while not self.stop_event.is_set():
-                if select.select([sys.stdin], [], [], 0.1)[0]:
-                    key = sys.stdin.read(1)
-                    
-                    # ESC - Toggle mode
-                    if key == '\x1b':
-                        self.input_mode = 3 - self.input_mode  # 1↔2
-                        self.current_text = ""
-                        print(f"\n🔄 Switched to {'🎤 VOICE' if self.input_mode==1 else '⌨️ KEYBOARD'} mode")
-                        continue
-                    
-                    if self.input_mode == 1:  # VOICE MODE
-                        if key == ' ':
-                            print("\n🎤 Recording... (ENTER to stop)")
-                            self.recording_active.set()
-                            with self.audio_lock:
-                                self.audio_data.clear()
-                        elif key == '\r' and self.recording_active.is_set():
-                            print("\n⏹️  Processing...")
-                            self.recording_active.clear()
-                            self.process_recording()
-                            
-                    else:  # KEYBOARD MODE
-                        if key == '\r':  # ENTER - publish
-                            if self.current_text.strip():
-                                text = self.current_text.strip()
-                                print(f"\n✅ Published: '{text}'")
-                                self.publish_text(text)
-                                self.current_text = ""
-                        elif key == '\x7f':  # Backspace
-                            self.current_text = self.current_text[:-1]
-                            sys.stdout.write('\b \b')
-                            sys.stdout.flush()
-                        else:
-                            self.current_text += key
-                            sys.stdout.write(key)
-                            sys.stdout.flush()
-        finally:
-            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
-    
+
+        print(f"📦 Shared Memory Name : {SHM_NAME}")
+        print(f"📦 Max Text Size     : {SHM_SIZE} bytes")
+
+    # ================== SHARED MEMORY ==================
+    def write_to_shared_memory(self, text: str):
+        with self.shm_lock:
+            self.shm_buf[:] = b"\x00" * SHM_SIZE
+            data = text.encode("utf-8")[: SHM_SIZE - 1]
+            self.shm_buf[: len(data)] = data
+
+    # ================== AUDIO ==================
+    def preprocess_audio(self, audio):
+        b, a = butter(4, 300, btype="high", fs=SAMPLE_RATE)
+        return filtfilt(b, a, audio)
+
     def audio_callback(self, indata, frames, time_, status):
         if status:
             print(status)
-        if self.recording_active.is_set():
-            data = indata[:, 0].astype(np.float32)
+        if self.recording.is_set():
             with self.audio_lock:
-                self.audio_data.extend(data)
-    
-    def process_recording(self):
-        with self.audio_lock:
-            if len(self.audio_data) < self.SAMPLE_RATE * 0.5:
-                print("❌ Audio too short")
-                return
-            audio_array = np.array(self.audio_data[-self.SAMPLE_RATE*3:], dtype=np.float32)
-        
-        # ENHANCE + NORMALIZE
-        audio_array = self.preprocess_audio(audio_array)
-        audio_array = audio_array.astype(np.float32)
-        audio_array = np.clip(audio_array, -1.0, 1.0)
-        if np.max(np.abs(audio_array)) > 0:
-            audio_array /= np.max(np.abs(audio_array))
-        
-        print("🔮 Transcribing...")
-        segments, _ = self.model.transcribe(audio_array, language="en", vad_filter=True)
-        text = " ".join(seg.text.strip() for seg in segments).strip()
-        
-        if text:
-            print(f"✅ Voice: '{text}'")
-            self.publish_text(text)
-        else:
-            print("❌ No speech detected")
-    
-    def publish_text(self, text):
-        """Publish to ROS2 /text topic"""
-        msg = String()
-        msg.data = text
-        self.publisher_.publish(msg)
-        self.get_logger().info(f'Published: "{text}"')
-    
+                self.audio_data.extend(indata[:, 0].astype(np.float32))
+
     def audio_thread(self):
         with sd.InputStream(
-            samplerate=self.SAMPLE_RATE,
-            channels=self.CHANNELS,
-            blocksize=self.FRAMES_PER_BLOCK,
-            dtype="float32",
+            channels=CHANNELS,
+            samplerate=SAMPLE_RATE,
+            blocksize=FRAMES_PER_BLOCK,
             callback=self.audio_callback,
         ):
             while not self.stop_event.is_set():
                 time.sleep(0.1)
-    
+
+    def process_recording(self):
+        with self.audio_lock:
+            if len(self.audio_data) < SAMPLE_RATE * 0.5:
+                print("❌ Audio too short")
+                return
+            audio = np.array(self.audio_data[-SAMPLE_RATE * 3:], dtype=np.float32)
+
+        audio = self.preprocess_audio(audio)
+        audio = np.clip(audio, -1.0, 1.0)
+        audio /= max(np.max(np.abs(audio)), 1e-6)
+
+        print("🔮 Transcribing...")
+        segments, _ = self.model.transcribe(audio, language="en", vad_filter=True)
+        text = " ".join(seg.text.strip() for seg in segments).strip()
+
+        if text:
+            print(f"✅ Voice → Shared Memory: '{text}'")
+            self.write_to_shared_memory(text)
+        else:
+            print("❌ No speech detected")
+
+    # ================== KEYBOARD (LINUX) ==================
+    def get_key(self):
+        dr, _, _ = select.select([sys.stdin], [], [], 0)
+        if dr:
+            return sys.stdin.read(1)
+        return None
+
+    def initial_setup(self):
+        print("\n=== INPUT MODE ===")
+        print("1 → 🎤 Voice")
+        print("2 → ⌨️  Keyboard")
+
+        while self.input_mode == 0:
+            key = self.get_key()
+            if key == "1":
+                self.input_mode = 1
+                print("🎤 Voice mode selected")
+            elif key == "2":
+                self.input_mode = 2
+                print("⌨️ Keyboard mode selected")
+            time.sleep(0.01)
+
+    def keyboard_thread(self):
+        print("ESC = toggle mode | Ctrl+C = quit")
+
+        while not self.stop_event.is_set():
+            key = self.get_key()
+
+            if key is None:
+                time.sleep(0.01)
+                continue
+
+            # ESC
+            if key == "\x1b":
+                self.input_mode = 3 - self.input_mode
+                self.current_text = ""
+                print(
+                    f"\n🔄 Switched to {'VOICE' if self.input_mode == 1 else 'KEYBOARD'}"
+                )
+
+            elif self.input_mode == 1:  # VOICE
+                if key == " ":
+                    print("\n🎤 Recording... ENTER to stop")
+                    self.audio_data.clear()
+                    self.recording.set()
+                elif key == "\n" and self.recording.is_set():
+                    self.recording.clear()
+                    self.process_recording()
+
+            else:  # KEYBOARD
+                if key == "\n":
+                    if self.current_text.strip():
+                        print(f"\n✅ Text → Shared Memory: '{self.current_text}'")
+                        self.write_to_shared_memory(self.current_text)
+                        self.current_text = ""
+                elif key == "\x7f":  # Backspace
+                    self.current_text = self.current_text[:-1]
+                    print("\b \b", end="", flush=True)
+                elif key.isprintable():
+                    self.current_text += key
+                    print(key, end="", flush=True)
+
+    # ================== RUN ==================
     def run(self):
-        """Main execution"""
-        self.initial_setup()
-        
-        # Start threads
-        kb_thread = threading.Thread(target=self.keyboard_thread, daemon=True)
-        kb_thread.start()
-        
-        audio_t = threading.Thread(target=self.audio_thread, daemon=True)
-        audio_t.start()
-        
+        # Put terminal in raw mode
+        old_settings = termios.tcgetattr(sys.stdin)
+        tty.setcbreak(sys.stdin.fileno())
+
         try:
-            rclpy.spin(self)
+            self.initial_setup()
+            threading.Thread(target=self.keyboard_thread, daemon=True).start()
+            threading.Thread(target=self.audio_thread, daemon=True).start()
+
+            while True:
+                time.sleep(0.2)
+
         except KeyboardInterrupt:
-            pass
+            print("\n🛑 Exiting...")
+
         finally:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
             self.stop_event.set()
-            self.destroy_node()
-            rclpy.shutdown()
+            self.shm.close()
+            try:
+                self.shm.unlink()
+                print("🧹 Shared memory unlinked")
+            except FileNotFoundError:
+                pass
 
-def main(args=None):
-    rclpy.init(args=args)
-    node = TextInputNode()
-    node.run()
 
-if __name__ == '__main__':
-    main()
+# ================== MAIN ==================
+if __name__ == "__main__":
+    TextInputApp().run()
