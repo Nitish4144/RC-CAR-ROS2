@@ -5,33 +5,33 @@ from launch.substitutions import PathJoinSubstitution
 
 def generate_launch_description():
     """
-    Launch LiDAR driver with X2 configuration.
-    This is included by other launch files.
+    Launch YDLiDAR X2 driver using official launch file
+    - Includes RViz visualization
+    - Uses your custom ydlidar.yaml config
     """
     
-    # Get the LiDAR driver package location
+    # Get the YDLiDAR driver package location
     ydlidar_driver_share = FindPackageShare('ydlidar_ros2_driver')
     
-    # Path to X2 config file
+    # Path to YOUR X2 config file
     config_file = PathJoinSubstitution([
-        FindPackageShare('ld_ctrl'),
+        FindPackageShare('ld_ctrl'),  # YOUR ld_ctrl package
         'config',
         'ydlidar.yaml'
     ])
     
-    # Include the LiDAR driver launch file with our config
+    # Include the OFFICIAL YDLiDAR launch file with YOUR config
     ydlidar_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
                 ydlidar_driver_share,
                 'launch',
-                'ydlidar_launch_view.py'  # Includes RViz
+                'ydlidar_launch_view.py'  # Official launch + RViz
             ])
         ),
         launch_arguments={
-            'params_file': config_file
+            'params_file': config_file  # Use YOUR config
         }.items()
     )
     
-    ld = LaunchDescription([ydlidar_launch])
-    return ld
+    return LaunchDescription([ydlidar_launch])
