@@ -125,21 +125,20 @@ class RCCarPWMDriver(Node):
         return (value - in_min) * (out_max - out_min)/(in_max-in_min) + out_min
 
      def convert_speed_to_pwm(self, speed_mps, gear):
+         if gear == 1:
+             if speed_mps <= 0.1:
+                 return int(self.map_range(speed_mps, 0.0, 0.1, 1000, 1100))
+             else:
+                 return int(self.map_range(speed_mps, 0.1, 1.0, 1100, 1200))
 
-        if gear == 1:
-            if speed_mps <= 0.1:
-                return int(self.map_range(speed_mps, 0.0, 0.1, 1000, 1100))
-            else:
-                return int(self.map_range(speed_mps, 0.1, 1.0, 1100, 1200))
+         elif gear == 2:
+             return int(self.map_range(speed_mps, 0.0, 1.0, 1200, 1400))
 
-        elif gear == 2:
-            return int(self.map_range(speed_mps, 0.0, 1.0, 1200, 1400))
+         elif gear == 3:
+             return int(self.map_range(speed_mps, 0.0, 1.0, 1400, 1700))
 
-        elif gear == 3:
-            return int(self.map_range(speed_mps, 0.0, 1.0, 1400, 1700))
-
-        else:
-            return ESC_NEUTRAL_US
+         else:
+             return ESC_NEUTRAL_US
 
 
 
