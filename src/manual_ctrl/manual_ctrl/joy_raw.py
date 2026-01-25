@@ -3,6 +3,12 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 
+# ---------- Button mapping ----------
+GEAR_UP_BTN   = 4
+GEAR_DOWN_BTN = 5
+BRAKE_BTN     = 1
+
+
 class PS4Controller(Node):
     def __init__(self, rate):
         super().__init__('joystick_ramped')
