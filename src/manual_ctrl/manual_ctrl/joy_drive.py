@@ -6,10 +6,11 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from ackermann_msgs.msg import AckermannDriveStamped # Import the specific message
-# ---------- Button mapping ----------
 GEAR_UP_BTN   = 4
 GEAR_DOWN_BTN = 5
 BRAKE_BTN     = 1
+
+
 
 
 class SimpleCarController(Node):
@@ -24,7 +25,27 @@ class SimpleCarController(Node):
         
         self.current_speed = 0.0      # Corresponds to speed (m/s)
         self.current_steering = 0.0   # Corresponds to steering_angle (rad)
-        
+        # ---------- Gear state ----------
+        # ---------- Gear state ----------
+        self.gear = 1              # START FROM GEAR 1
+        self.MAX_GEAR = 3
+
+        self.gear_changing = False
+        self.gear_timer = 0.0
+        self.GEAR_LOCK_TIME = 0.5  # seconds
+
+        # ---------- Throttle zones ----------
+        self.THROTTLE_LOW  = 0.2
+        self.THROTTLE_HIGH = 0.8
+
+        # ---------- Gear speed limits ----------
+        self.GEAR_MAX_SPEED = {
+            1: 0.3,
+            2: 0.6,
+            3: 1.0
+        }
+
+
         # Define maximum movement values for scaling
         self.MAX_SPEED = 1             # Max linear speed in meters/second
         self.MAX_STEERING_ANGLE = 0.27  # Max steering angle in radians (approx 30 degrees)
@@ -34,12 +55,43 @@ class SimpleCarController(Node):
     def joy_callback(self, msg):
         # Safety check: Ensure the message has enough axes to read
         # Checking for index 4 requires a length of at least 5.
-        if len(msg.axes) >= 5: 
+        gear_up   = msg.buttons[GEAR_UP_BTN]
+        gear_down = msg.buttons[GEAR_DOWN_BTN]
+        brake     = msg.buttons[BRAKE_BTN]
+        
+        if brake:
+            self.current_speed = 0.0
+            return
+            
+        if gear_up and throttle > self.THROTTLE_HIGH and not self.gear_changing:
+            if self.gear < self.MAX_GEAR:
+                self.gear += 1
+                self.gear_changing = True
+                self.gear_timer = self.GEAR_LOCK_TIME
+                
+        if gear_down and throttle < self.THROTTLE_LOW and not self.gear_changing:
+            if self.gear > 1:
+                self.gear -= 1
+                self.gear_changing = True
+                self.gear_timer = self.GEAR_LOCK_TIME
+                
+        if self.gear_changing:
+            self.current_speed = 0.0
+            return
+
+
+
+
+           
+        if len(msg.axes) >= 5:
+            
             
             # --- Input Mapping ---
             # Axis 0: Left/Right Stick X-axis (for Steering)
             # Axis 4: Trigger/Stick (for Throttle/Speed) - Used based on your original code
-                        
+            
+
+       
             raw_steering_input = msg.axes[2]
             raw_throttle_input = msg.axes[1] 
             
@@ -56,9 +108,19 @@ class SimpleCarController(Node):
             # Emergency stop/neutral if the joystick data is invalid
             self.current_speed = 0.0
             self.current_steering = 0.0
+        max_speed = self.GEAR_MAX_SPEED[self.gear]
+        self.current_speed = throttle * max_speed
+        self.current_steering = steering * self.MAX_STEERING_ANGLE
 
     def publish_commands(self):
+       
         # 1. Create a new AckermannDriveStamped message
+        dt = 1.0 / 50.0
+        if self.gear_changing:
+            self.gear_timer -= dt
+            if self.gear_timer <= 0:
+                self.gear_changing = False
+
         drive_msg = AckermannDriveStamped()
         
         # 2. Fill the Header
@@ -69,7 +131,8 @@ class SimpleCarController(Node):
         # 3. Fill the Drive command fields
         drive_msg.drive.speed = self.current_speed             # Set linear speed (m/s)
         drive_msg.drive.steering_angle = self.current_steering # Set steering angle (rad)
-        
+        drive_msg.drive.acceleration = float(self.gear)
+
         # 4. Publish the command
         self.drive_pub.publish(drive_msg)
 
