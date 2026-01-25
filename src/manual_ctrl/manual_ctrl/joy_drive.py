@@ -55,6 +55,9 @@ class SimpleCarController(Node):
     def joy_callback(self, msg):
         # Safety check: Ensure the message has enough axes to read
         # Checking for index 4 requires a length of at least 5.
+        throttle = msg.axes[self.THROTTLE_AXIS]
+        steering = msg.axes[self.STEERING_AXIS]
+
         gear_up   = msg.buttons[GEAR_UP_BTN]
         gear_down = msg.buttons[GEAR_DOWN_BTN]
         brake     = msg.buttons[BRAKE_BTN]
@@ -100,7 +103,9 @@ class SimpleCarController(Node):
 
             # 1. Calculate Speed (Linear): Maps [-1.0, 1.0] input to [-MAX_SPEED, MAX_SPEED]
             # Assumes stick up/down maps to forward/backward speed
-            self.current_speed = (raw_throttle_input) * self.MAX_SPEED
+            max_speed = self.GEAR_MAX_SPEED[self.gear]
+           self.current_speed = throttle * max_speed
+
 
             # 2. Calculate Steering Angle (Angular): Maps [-1.0, 1.0] input to [-MAX_STEERING_ANGLE, MAX_STEERING_ANGLE]
             self.current_steering = raw_steering_input * self.MAX_STEERING_ANGLE
