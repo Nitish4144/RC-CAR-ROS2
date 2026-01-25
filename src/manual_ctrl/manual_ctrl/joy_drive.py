@@ -29,6 +29,9 @@ class SimpleCarController(Node):
         # ---------- Gear state ----------
         self.gear = 1              # START FROM GEAR 1
         self.MAX_GEAR = 3
+        self.THROTTLE_AXIS = 1
+        self.STEERING_AXIS = 2
+
 
         self.gear_changing = False
         self.gear_timer = 0.0
@@ -86,25 +89,11 @@ class SimpleCarController(Node):
 
 
            
-        if len(msg.axes) >= 5:
-            
-            
-            # --- Input Mapping ---
-            # Axis 0: Left/Right Stick X-axis (for Steering)
-            # Axis 4: Trigger/Stick (for Throttle/Speed) - Used based on your original code
-            
-
        
-            raw_steering_input = msg.axes[2]
-            raw_throttle_input = msg.axes[1] 
-            
-            self.MAX_SPEED = 1             # Max linear speed in meters/second
-            self.MAX_STEERING_ANGLE = 0.52 # Max steering angle in radians (approx 30 degrees)
-
             # 1. Calculate Speed (Linear): Maps [-1.0, 1.0] input to [-MAX_SPEED, MAX_SPEED]
             # Assumes stick up/down maps to forward/backward speed
             max_speed = self.GEAR_MAX_SPEED[self.gear]
-           self.current_speed = throttle * max_speed
+            self.current_speed = throttle * max_speed
 
 
             # 2. Calculate Steering Angle (Angular): Maps [-1.0, 1.0] input to [-MAX_STEERING_ANGLE, MAX_STEERING_ANGLE]
