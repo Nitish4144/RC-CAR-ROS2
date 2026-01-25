@@ -124,7 +124,7 @@ class RCCarPWMDriver(Node):
         #value = np.clip(value, in_min, in_max)
         return (value - in_min) * (out_max - out_min)/(in_max-in_min) + out_min
 
-    def convert_speed_to_pwm(self, speed_mps, gear):
+   def convert_speed_to_pwm(self, speed_mps, gear):
 
     if gear == 1:
         if speed_mps <= 0.1:
@@ -140,6 +140,7 @@ class RCCarPWMDriver(Node):
 
     else:
         return ESC_NEUTRAL_US
+
 
 
 
