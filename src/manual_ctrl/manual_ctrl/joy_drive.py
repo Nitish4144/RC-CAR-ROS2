@@ -97,9 +97,9 @@ class SimpleCarController(Node):
 
 
             # 2. Calculate Steering Angle (Angular): Maps [-1.0, 1.0] input to [-MAX_STEERING_ANGLE, MAX_STEERING_ANGLE]
-            self.current_steering = raw_steering_input * self.MAX_STEERING_ANGLE
-        else:
-            # Emergency stop/neutral if the joystick data is invalid
+            self.current_steering = steering * self.MAX_STEERING_ANGLE
+            
+        else:# Emergency stop/neutral if the joystick data is invalid
             self.current_speed = 0.0
             self.current_steering = 0.0
         max_speed = self.GEAR_MAX_SPEED[self.gear]
