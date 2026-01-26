@@ -124,24 +124,32 @@ class RCCarPWMDriver(Node):
         #value = np.clip(value, in_min, in_max)
         return (value - in_min) * (out_max - out_min)/(in_max-in_min) + out_min
 
-     def convert_speed_to_pwm(self, speed_mps, gear):
-         if gear == 1:
-             if speed_mps <= 0.1:
-                 return int(self.map_range(speed_mps, 0.0, 0.1, 1000, 1100))
-             else:
-                 return int(self.map_range(speed_mps, 0.1, 1.0, 1100, 1200))
-
-         elif gear == 2:
-             return int(self.map_range(speed_mps, 0.0, 1.0, 1200, 1400))
-
-         elif gear == 3:
-             return int(self.map_range(speed_mps, 0.0, 1.0, 1400, 1700))
-
-         else:
-             return ESC_NEUTRAL_US
-
-
-
+    def convert_speed_to_pwm(self, speed_mps):
+        #speed_mps = np.clip(speed_mps, 0.0, MAX_SPEED_MPS)
+        if(abs(speed_mps/MAX_SPEED_MPS) <= 0.1):
+            return int(self.map_range(
+            speed_mps,
+            0.0, MAX_SPEED_MPS,
+            ESC_NEUTRAL_US, STAGE_1
+        ))
+        elif(abs(speed_mps/MAX_SPEED_MPS) <= 0.45):
+            return int(self.map_range(
+            speed_mps,
+            0.0, MAX_SPEED_MPS,
+            STAGE_1, STAGE_2
+        ))
+        elif (abs(speed_mps/MAX_SPEED_MPS) <= 0.75) :
+            return int(self.map_range(
+            speed_mps,
+            0.0, MAX_SPEED_MPS,
+            STAGE_2, STAGE_3
+        ))
+        else:
+            return int(self.map_range(
+            speed_mps,
+            0.0, MAX_SPEED_MPS,
+            STAGE_3, ESC_FORWARD_MAX_US
+        ))
 
 
     def convert_steering_to_pwm(self, angle_rad):
@@ -154,15 +162,10 @@ class RCCarPWMDriver(Node):
 
     # ================= ROS CALLBACK =================
     def drive_callback(self, msg):
-        gear = int(msg.drive.acceleration)
-        speed = msg.drive.speed
-        steering = msg.drive.steering_angle
-
         if self.calibrating:
             return
 
-        speed_pwm = self.convert_speed_to_pwm(speed, gear)
-
+        speed_pwm = self.convert_speed_to_pwm(msg.drive.speed)
         steer_pwm = self.convert_steering_to_pwm(msg.drive.steering_angle)
 
         self.set_pwm_us(ESC_CH, speed_pwm)
