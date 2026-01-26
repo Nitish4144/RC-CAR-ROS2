@@ -1,17 +1,8 @@
-
-
-
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from ackermann_msgs.msg import AckermannDriveStamped # Import the specific message
-GEAR_UP_BTN   = 4
-GEAR_DOWN_BTN = 5
-BRAKE_BTN     = 1
-
-
-
 
 class SimpleCarController(Node):
     def __init__(self):
@@ -25,30 +16,7 @@ class SimpleCarController(Node):
         
         self.current_speed = 0.0      # Corresponds to speed (m/s)
         self.current_steering = 0.0   # Corresponds to steering_angle (rad)
-        # ---------- Gear state ----------
-        # ---------- Gear state ----------
-        self.gear = 1              # START FROM GEAR 1
-        self.MAX_GEAR = 3
-        self.THROTTLE_AXIS = 1
-        self.STEERING_AXIS = 2
-
-
-        self.gear_changing = False
-        self.gear_timer = 0.0
-        self.GEAR_LOCK_TIME = 0.5  # seconds
-
-        # ---------- Throttle zones ----------
-        self.THROTTLE_LOW  = 0.2
-        self.THROTTLE_HIGH = 0.8
-
-        # ---------- Gear speed limits ----------
-        self.GEAR_MAX_SPEED = {
-            1: 0.3,
-            2: 0.6,
-            3: 1.0
-        }
-
-
+        
         # Define maximum movement values for scaling
         self.MAX_SPEED = 1             # Max linear speed in meters/second
         self.MAX_STEERING_ANGLE = 0.27  # Max steering angle in radians (approx 30 degrees)
@@ -58,63 +26,31 @@ class SimpleCarController(Node):
     def joy_callback(self, msg):
         # Safety check: Ensure the message has enough axes to read
         # Checking for index 4 requires a length of at least 5.
-        throttle = msg.axes[self.THROTTLE_AXIS]
-        steering = msg.axes[self.STEERING_AXIS]
-
-        gear_up   = msg.buttons[GEAR_UP_BTN]
-        gear_down = msg.buttons[GEAR_DOWN_BTN]
-        brake     = msg.buttons[BRAKE_BTN]
-        
-        if brake:
-            self.current_speed = 0.0
-            return
+        if len(msg.axes) >= 5: 
             
-        if gear_up and throttle > self.THROTTLE_HIGH and not self.gear_changing:
-            if self.gear < self.MAX_GEAR:
-                self.gear += 1
-                self.gear_changing = True
-                self.gear_timer = self.GEAR_LOCK_TIME
-                
-        if gear_down and throttle < self.THROTTLE_LOW and not self.gear_changing:
-            if self.gear > 1:
-                self.gear -= 1
-                self.gear_changing = True
-                self.gear_timer = self.GEAR_LOCK_TIME
-                
-        if self.gear_changing:
-            self.current_speed = 0.0
-            return
+            # --- Input Mapping ---
+            # Axis 0: Left/Right Stick X-axis (for Steering)
+            # Axis 4: Trigger/Stick (for Throttle/Speed) - Used based on your original code
+                        
+            raw_steering_input = msg.axes[2]
+            raw_throttle_input = msg.axes[1] 
+            
+            self.MAX_SPEED = 1             # Max linear speed in meters/second
+            self.MAX_STEERING_ANGLE = 0.52 # Max steering angle in radians (approx 30 degrees)
 
-
-
-
-           
-       
             # 1. Calculate Speed (Linear): Maps [-1.0, 1.0] input to [-MAX_SPEED, MAX_SPEED]
             # Assumes stick up/down maps to forward/backward speed
-            max_speed = self.GEAR_MAX_SPEED[self.gear]
-            self.current_speed = throttle * max_speed
-
+            self.current_speed = (raw_throttle_input) * self.MAX_SPEED
 
             # 2. Calculate Steering Angle (Angular): Maps [-1.0, 1.0] input to [-MAX_STEERING_ANGLE, MAX_STEERING_ANGLE]
-            self.current_steering = steering * self.MAX_STEERING_ANGLE
-            
-        else:# Emergency stop/neutral if the joystick data is invalid
+            self.current_steering = raw_steering_input * self.MAX_STEERING_ANGLE
+        else:
+            # Emergency stop/neutral if the joystick data is invalid
             self.current_speed = 0.0
             self.current_steering = 0.0
-        max_speed = self.GEAR_MAX_SPEED[self.gear]
-        self.current_speed = throttle * max_speed
-        self.current_steering = steering * self.MAX_STEERING_ANGLE
 
     def publish_commands(self):
-       
         # 1. Create a new AckermannDriveStamped message
-        dt = 1.0 / 50.0
-        if self.gear_changing:
-            self.gear_timer -= dt
-            if self.gear_timer <= 0:
-                self.gear_changing = False
-
         drive_msg = AckermannDriveStamped()
         
         # 2. Fill the Header
@@ -125,8 +61,7 @@ class SimpleCarController(Node):
         # 3. Fill the Drive command fields
         drive_msg.drive.speed = self.current_speed             # Set linear speed (m/s)
         drive_msg.drive.steering_angle = self.current_steering # Set steering angle (rad)
-        drive_msg.drive.acceleration = float(self.gear)
-
+        
         # 4. Publish the command
         self.drive_pub.publish(drive_msg)
 
@@ -138,6 +73,77 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+
+
+#!/#!/usr/bin/env python3
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Joy
+
+class PS4Controller(Node):
+    def __init__(self, rate):
+        super().__init__('joystick_ramped')
+
+        self.subscription = self.create_subscription(
+            Joy, 'joy', self.joy_callback, 10)
+
+        self.publisher = self.create_publisher(
+            Joy, 'driftpilot_joy/joy_ramped', 10)
+
+        self.timer = self.create_timer(1.0 / rate, self.publish_joy)
+
+        # ---------- Joy state ----------
+        self.target_joy = Joy()
+        self.target_joy.axes = [0.] * 8
+        self.target_joy.buttons = [0] * 11
+
+        # ---------- Axis mapping ----------
+        self.THROTTLE_AXIS = 1
+        self.STEERING_AXIS = 2
+
+        # ---------- Throttle ramp ----------
+        self.throttle_target = 0.0
+        self.throttle_output = 0.0
+        self.THROTTLE_RAMP_RATE = 0.04   # per cycle @ 50 Hz
+
+    def joy_callback(self, msg):
+        self.target_joy.buttons = msg.buttons
+        self.target_joy.axes = msg.axes
+
+        if len(msg.axes) > self.THROTTLE_AXIS:
+            self.throttle_target = msg.axes[self.THROTTLE_AXIS]
+        else:
+            self.throttle_target = 0.0
+
+    def ramp(self, target, current, rate):
+        delta = target - current
+        if delta > rate:
+            delta = rate
+        elif delta < -rate:
+            delta = -rate
+        return current + delta
+
+    def publish_joy(self):
+        # ---- Apply ramp ONLY to throttle ----
+        self.throttle_output = self.ramp(
+            self.throttle_target,
+            self.throttle_output,
+            self.THROTTLE_RAMP_RATE
+        )
+
+        self.target_joy.axes[self.THROTTLE_AXIS] = self.throttle_output
+        self.publisher.publish(self.target_joy)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    joystick = PS4Controller(rate=50)
+    rclpy.spin(joystick)
+    joystick.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':
