@@ -74,13 +74,27 @@ class LlmAckermannNode(Node):
         )
         msg.drive.jerk = self.clamp(msg.drive.jerk, -self.MAX_JERK, self.MAX_JERK)
 
-        self.pub.publish(msg)
-
+        #self.pub.publish(msg)
+'''
         self.get_logger().info(
             f"Published: speed={msg.drive.speed:.2f}, "
             f"steer={msg.drive.steering_angle:.2f}"
         )
+'''
+        self.last_cmd = msg
+        self.last_update_time = self.get_clock.now()
 
+    def timer_callback:
+        now = self.get_clock().now()
+        dt = (now - self.last_update_time).nanoseconds * 1e-9
+
+    # 🚨 Watchdog: stop car if no UDP update
+        if dt > self.TIMEOUT_SEC:
+            self.last_cmd.drive.speed = 0.0
+            self.last_cmd.drive.steering_angle = 0.0
+
+        self.last_cmd.header.stamp = now.to_msg()
+        self.pub.publish(self.last_cmd)
 
 def main(args=None):
     rclpy.init(args=args)
