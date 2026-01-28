@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import rclpy
 from rclpy.node import Node
 from ackermann_msgs.msg import AckermannDriveStamped
@@ -19,14 +17,16 @@ LED0_ON_L = 0x06
 
 # ================= SERVO / ESC PARAMS =================
 SERVO_CENTER_US = 1500
-SERVO_RANGE_US = 500
-MAX_STEERING_RAD = 0.52
+SERVO_RANGE_US = 200
+MAX_STEERING_RAD = 0.27 # 15.5 deg
 
 ESC_NEUTRAL_US = 1000
-ESC_FORWARD_MAX_US = 1700
+ESC_FORWARD_MAX_US = 1600
 ESC_CALIB_MAX_US = 2000
-MAX_SPEED_MPS = 0.5
-
+MAX_SPEED_MPS = 1
+STAGE_1 = 1100
+STAGE_2 = 1300
+STAGE_3 = 1500
 PWM_FREQ = 50  # Hz
 
 # =====================================================
@@ -111,19 +111,46 @@ class RCCarPWMDriver(Node):
         except Exception as e:
             self.get_logger().error(f"ESC calibration error: {e}")
             self.calibrating = False
+    """SERVO_CENTER_US = 1500 
+    SERVO_RANGE_US = 500
+    MAX_STEERING_RAD = 0.27 # 15.5 deg
 
+    ESC_NEUTRAL_US = 1000
+    ESC_FORWARD_MAX_US = 1600
+    ESC_CALIB_MAX_US = 2000
+    MAX_SPEED_MPS = 1"""
     # ================= MAPPING =================
     def map_range(self, value, in_min, in_max, out_min, out_max):
-        value = np.clip(value, in_min, in_max)
-        return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+        #value = np.clip(value, in_min, in_max)
+        return (value - in_min) * (out_max - out_min)/(in_max-in_min) + out_min
 
     def convert_speed_to_pwm(self, speed_mps):
-        speed_mps = np.clip(speed_mps, 0.0, MAX_SPEED_MPS)
-        return int(self.map_range(
+        #speed_mps = np.clip(speed_mps, 0.0, MAX_SPEED_MPS)
+        if(abs(speed_mps/MAX_SPEED_MPS) <= 0.1):
+            return int(self.map_range(
             speed_mps,
             0.0, MAX_SPEED_MPS,
-            ESC_NEUTRAL_US, ESC_FORWARD_MAX_US
+            ESC_NEUTRAL_US, STAGE_1
         ))
+        elif(abs(speed_mps/MAX_SPEED_MPS) <= 0.45):
+            return int(self.map_range(
+            speed_mps,
+            0.0, MAX_SPEED_MPS,
+            STAGE_1, STAGE_2
+        ))
+        elif (abs(speed_mps/MAX_SPEED_MPS) <= 0.75) :
+            return int(self.map_range(
+            speed_mps,
+            0.0, MAX_SPEED_MPS,
+            STAGE_2, STAGE_3
+        ))
+        else:
+            return int(self.map_range(
+            speed_mps,
+            0.0, MAX_SPEED_MPS,
+            STAGE_3, ESC_FORWARD_MAX_US
+        ))
+
 
     def convert_steering_to_pwm(self, angle_rad):
         return int(self.map_range(
@@ -142,7 +169,9 @@ class RCCarPWMDriver(Node):
         steer_pwm = self.convert_steering_to_pwm(msg.drive.steering_angle)
 
         self.set_pwm_us(ESC_CH, speed_pwm)
+        #self.get_logger().info(f"speed-pwm:{speed_pwm}...")
         self.set_pwm_us(SERVO_CH, steer_pwm)
+        self.get_logger().info(f"steer:{steer_pwm}..speed:{speed_pwm}")
 
     def on_shutdown(self):
         self.set_pwm_us(ESC_CH, ESC_NEUTRAL_US)
@@ -164,4 +193,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-
