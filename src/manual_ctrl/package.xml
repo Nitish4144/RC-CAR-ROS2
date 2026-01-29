@@ -13,8 +13,9 @@
   <depend>sensor_msgs</depend>
   <depend>ackermann_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>ydlidar_ros2_driver</depend>
 
-  <exec_depend>pigpio</exec_depend>
+  <exec_depend>gpiozero</exec_depend>
   <exec_depend>numpy</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
