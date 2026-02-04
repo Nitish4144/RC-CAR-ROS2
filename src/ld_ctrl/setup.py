@@ -19,7 +19,6 @@ setup(
         ('share/' + package_name + '/config', [
             'config/ydlidar.yaml',
             'config/slam_toolbox_async.yaml',
-            'config/lane_detection_config.yaml',  # Lane detection config
         ]),
     ],
     install_requires=['setuptools'],

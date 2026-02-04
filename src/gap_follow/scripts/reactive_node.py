@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import rclpy
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 from rclpy.node import Node
 import numpy as np
 
@@ -26,12 +27,25 @@ class ReactiveFollowGap(Node):
         self.prev_steering = 0.0
 
         # ROS interfaces
+        
+        scan_qos = QoSProfile(
+            depth=10,
+            reliability=ReliabilityPolicy.BEST_EFFORT
+        )
+
         self.scan_sub = self.create_subscription(
             LaserScan,
             self.scan_topic,
             self.lidar_callback,
-            10
+            scan_qos
         )
+
+        #self.scan_sub = self.create_subscription(
+        #    LaserScan,
+        #    self.scan_topic,
+        #    self.lidar_callback,
+        #    10
+        #)
 
         self.drive_pub = self.create_publisher(
             AckermannDriveStamped,
@@ -76,6 +90,15 @@ class ReactiveFollowGap(Node):
 
     # ------------------------------------------------
     def lidar_callback(self, data):
+        self.get_logger().error("LIDAR CALLBACK FIRED")
+        drive_msg = AckermannDriveStamped()
+        drive_msg.drive.speed = 0.5
+        drive_msg.drive.steering_angle = 0.0
+        self.drive_pub.publish(drive_msg)
+
+        self.get_logger().error("FORCED DRIVE PUBLISHED")
+        return
+
         ranges = self.preprocess_lidar(data.ranges)
 
         # ===== FRONT-ONLY FOV =====

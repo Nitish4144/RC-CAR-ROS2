@@ -1,37 +1,41 @@
 from launch import LaunchDescription
-from launch_ros.actions import IncludeLaunchDescription
-from launch_ros.substitutions import FindPackageShare
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import PathJoinSubstitution
+
+from launch_ros.substitutions import FindPackageShare
+
 
 def generate_launch_description():
     """
-    Launch YDLiDAR X2 driver using official launch file
-    - Includes RViz visualization
-    - Uses your custom ydlidar.yaml config
+    Launch YDLiDAR driver using official launch file
+    (ROS 2 Jazzy compatible)
     """
-    
-    # Get the YDLiDAR driver package location
+
+    # Path to YDLiDAR driver package
     ydlidar_driver_share = FindPackageShare('ydlidar_ros2_driver')
-    
-    # Path to YOUR X2 config file
+
+    # Path to YOUR YDLiDAR config
     config_file = PathJoinSubstitution([
-        FindPackageShare('ld_ctrl'),  # YOUR ld_ctrl package
+        FindPackageShare('ld_ctrl'),
         'config',
         'ydlidar.yaml'
     ])
-    
-    # Include the OFFICIAL YDLiDAR launch file with YOUR config
+
+    # Include official YDLiDAR launch file
     ydlidar_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
                 ydlidar_driver_share,
                 'launch',
-                'ydlidar_launch_view.py'  # Official launch + RViz
+                'ydlidar_launch_view.py'
             ])
         ),
         launch_arguments={
-            'params_file': config_file  # Use YOUR config
+            'params_file': config_file
         }.items()
     )
-    
-    return LaunchDescription([ydlidar_launch])
+
+    return LaunchDescription([
+        ydlidar_launch
+    ])

@@ -21,7 +21,6 @@ setup(
     entry_points={
         'console_scripts': [
             'reactive_node = gap_follow.reactive_node:main'
-            'gap_follow_node=gap_follow.gap_follow_node:main',
         ],
     },
 )

@@ -1,32 +1,33 @@
+import os
 
 from launch import LaunchDescription
-from launch_ros.actions import Node, IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
+
+from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-from launch.substitutions import PathJoinSubstitution
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+
 
 def generate_launch_description():
     """
-    Launch SLAM_Toolbox with YDLIDAR X2
-    Creates a real-time map of your environment
+    Launch SLAM Toolbox (async) with YDLiDAR
+    ROS 2 Jazzy compatible
     """
-    
-    # Declare arguments
+
+    # Use sim time (optional, default false)
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
-    
-    # Get SLAM configuration file
+
+    # Path to SLAM config
     slam_config = PathJoinSubstitution([
         FindPackageShare('ld_ctrl'),
         'config',
         'slam_toolbox_async.yaml'
     ])
-    
-    ld = LaunchDescription()
-    
-    # ============================================
-    # 1. Launch LiDAR Driver
-    # ============================================
+
+    # --------------------------------------------
+    # 1. Launch LiDAR + base setup (ld_ctrl)
+    # --------------------------------------------
     ld_ctrl_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
@@ -36,39 +37,45 @@ def generate_launch_description():
             ])
         )
     )
-    ld.add_action(ld_ctrl_launch)
-    
-    # ============================================
-    # 2. Static Transform (LiDAR to base_link)
-    # ============================================
-    # This tells ROS where the LiDAR sits on the car
-    tf_static_publisher = Node(
+
+    # --------------------------------------------
+    # 2. Static TF: base_link → laser_frame
+    # --------------------------------------------
+    static_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        name='static_transform_publisher',
+        name='base_to_laser_tf',
         output='log',
         arguments=[
-            '0.0', '0.0', '0.15',  # Position: x, y, z (meters)
-            '0.0', '0.0', '0.0',   # Rotation: roll, pitch, yaw (radians)
-            'base_link',            # Parent frame
-            'laser_frame'           # Child frame (from ydlidar.yaml)
+            '0.0', '0.0', '0.15',   # x y z
+            '0.0', '0.0', '0.0',    # roll pitch yaw
+            'base_link',
+            'laser_frame'
         ]
     )
-    ld.add_action(tf_static_publisher)
-    
-    # ============================================
-    # 3. SLAM_Toolbox Node (Async Mode)
-    # ============================================
+
+    # --------------------------------------------
+    # 3. SLAM Toolbox (Async)
+    # --------------------------------------------
     slam_node = Node(
         package='slam_toolbox',
         executable='async_slam_toolbox_node',
         name='slam_toolbox',
         output='screen',
-        parameters=[slam_config],
+        parameters=[
+            slam_config,
+            {'use_sim_time': use_sim_time}
+        ],
         remappings=[
-            ('/scan', '/scan'),
+            ('scan', '/scan'),
         ]
     )
-    ld.add_action(slam_node)
-    
-    return ld
+
+    # --------------------------------------------
+    # Launch description
+    # --------------------------------------------
+    return LaunchDescription([
+        ld_ctrl_launch,
+        static_tf,
+        slam_node
+    ])

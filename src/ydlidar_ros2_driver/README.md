@@ -97,7 +97,20 @@ ydlidar_ros2_driver_node:
     invalid_range_is_inf: false
     debug: false
 ```
-Note: It needs to be modified according to LiDAR actual situation.
+**`Note: It needs to be modified according to LiDAR actual situation,Or specify parameter files in the [launch file].py file.`**
+| Lidar	Type			| Parameter File		|
+|-------------------------------|-------------------------------|
+|G4 Lidar			|G4.yaml			|
+|X2/X2L Lidar			|X2.yaml			|
+|X4 Lidar			|X4.yaml			|
+|X4 Pro Lidar			|X4-Pro.yaml			|
+|TG15/TG30/TG50 Lidar		|TG.yaml			|
+|Tmini Pro/Tmini Plus		|Tmini.yaml			|
+|Tmini Plus SH			|Tmini-Plus-SH.yaml		|
+|TEA Lidar			|TEA.yaml			|
+|GS2 Lidar			|GS2.yaml			|
+|GS5 Lidar			|GS5.yaml			|
+|SDM15 Lidar			|sdm15.yaml			|
 
 ## Run ydlidar_ros2_driver
 
