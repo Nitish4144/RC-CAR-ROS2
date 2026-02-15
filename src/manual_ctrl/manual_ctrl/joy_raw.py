@@ -55,6 +55,7 @@ class PS4Controller(Node):
         )
 
         self.target_joy.axes[self.THROTTLE_AXIS] = self.throttle_output
+        #self.target_joy.axes[self.STEERING_AXIS] = -self.target_joy.axes[self.STEERING_AXIS]
         self.publisher.publish(self.target_joy)
 
 

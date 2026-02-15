@@ -139,10 +139,17 @@ def generate_launch_description():
         arguments=['-d', rviz_config_file],
         output='screen',
         condition=IfCondition(use_rviz),
-        env={
-            'LIBGL_ALWAYS_SOFTWARE': '1'
+        additional_env={
+            'LIBGL_ALWAYS_SOFTWARE': '1',
+            'LD_LIBRARY_PATH':
+                '/opt/ros/jazzy/opt/gz_math_vendor/lib:'
+                '/opt/ros/jazzy/opt/rviz_ogre_vendor/lib:'
+                '/opt/ros/jazzy/lib:'
+                '$LD_LIBRARY_PATH'
         }
     )
+
+
 
     
     return LaunchDescription([

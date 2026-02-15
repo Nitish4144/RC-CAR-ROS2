@@ -1,51 +1,71 @@
-#include <Servo.h>
+#include <Wire.h>
 
-Servo esc;
-Servo steering;
+// ================= PCA9685 CONFIG =================
+#define PCA9685_ADDR 0x40
+#define MODE1        0x00
+#define PRESCALE     0xFE
+#define LED0_ON_L    0x06
 
-const int ESC_PIN = 9;
-const int STEERING_PIN = 10;
+#define ESC_CH       12
+#define STEER_CH     3
+// =================================================
 
-float speed = 0.0;
-float steering_angle = 0.0;
+void write8(uint8_t reg, uint8_t val) {
+  Wire.beginTransmission(PCA9685_ADDR);
+  Wire.write(reg);
+  Wire.write(val);
+  Wire.endTransmission();
+}
+
+void setPWMFreq(int freq) {
+  uint8_t prescale = (25000000UL / (4096 * freq)) - 1;
+
+  write8(MODE1, 0x10);       // sleep
+  write8(PRESCALE, prescale);
+  write8(MODE1, 0x80);       // restart
+  delay(5);
+}
+
+void setPWM(uint8_t channel, uint16_t us) {
+  uint16_t ticks = (uint32_t)us * 4096 / 20000;
+  uint8_t base = LED0_ON_L + 4 * channel;
+
+  write8(base, 0);
+  write8(base + 1, 0);
+  write8(base + 2, ticks & 0xFF);
+  write8(base + 3, ticks >> 8);
+}
 
 void setup() {
   Serial.begin(115200);
+  Wire.begin();   // Arduino = I2C master
 
-  esc.attach(ESC_PIN);
-  steering.attach(STEERING_PIN);
+  // Init PCA9685
+  write8(MODE1, 0x00);
+  delay(10);
+  setPWMFreq(50);
 
-  // Neutral
-  esc.writeMicroseconds(1000);
-  steering.writeMicroseconds(1500);
+  // Safe neutral
+  setPWM(ESC_CH, 1000);
+  setPWM(STEER_CH, 1500);
 
-  Serial.println("Arduino ready");
+  Serial.println("Arduino PCA9685 bridge ready");
 }
 
 void loop() {
   if (Serial.available()) {
     String data = Serial.readStringUntil('\n');
+    int comma = data.indexOf(',');
 
-    int commaIndex = data.indexOf(',');
-    if (commaIndex > 0) {
-      speed = data.substring(0, commaIndex).toFloat();
-      steering_angle = data.substring(commaIndex + 1).toFloat();
+    if (comma > 0) {
+      int esc_us = data.substring(0, comma).toInt();
+      int steer_us = data.substring(comma + 1).toInt();
 
-      // Map speed (-1 to 1) → ESC PWM
-      int esc_pwm = map(speed * 1000, -1000, 1000, 1000, 2000);
-      esc_pwm = constrain(esc_pwm, 1000, 2000);
+      esc_us = constrain(esc_us, 1000, 2000);
+      steer_us = constrain(steer_us, 1100, 1900);
 
-      // Map steering (rad) → servo PWM
-      int steer_pwm = map(steering_angle * 1000, -520, 520, 1100, 1900);
-      steer_pwm = constrain(steer_pwm, 1100, 1900);
-
-      esc.writeMicroseconds(esc_pwm);
-      steering.writeMicroseconds(steer_pwm);
-
-      Serial.print("ESC: ");
-      Serial.print(esc_pwm);
-      Serial.print(" | STEER: ");
-      Serial.println(steer_pwm);
+      setPWM(ESC_CH, esc_us);
+      setPWM(STEER_CH, steer_us);
     }
   }
 }

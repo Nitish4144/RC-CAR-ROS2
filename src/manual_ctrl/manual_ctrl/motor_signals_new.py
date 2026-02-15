@@ -2,7 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
-from ackermann_msgs.msg import AckermannDriveStamped # Removed Joy since it's unused
+from ackermann_msgs.msg import AckermannDriveStamped
 import serial
 import time
 import math
@@ -12,16 +12,16 @@ SERIAL_PORT = "/dev/ttyACM0"
 BAUDRATE = 115200
 
 # ================= VEHICLE PARAMS =================
-MAX_SPEED_MPS = 1.0        #         Max speed in meters per second
-MAX_REVERSE_SPEED_MPS = -1.0       # Max reverse speed in meters per second
-MAX_STEERING_RAD = 0.8     # Max steering angle in radians (~45 degrees)
+MAX_SPEED_MPS = 1.0
+MAX_REVERSE_SPEED_MPS = -1.0
+MAX_STEERING_RAD = 0.8
 
-ESC_NEUTRAL_US = 1500      # Standard neutral is usually 1500, but you had 1000.                       
-ESC_MIN_US = 1320          
+ESC_NEUTRAL_US = 1500
+ESC_MIN_US = 1320
 ESC_FORWARD_MAX_US = 1680
 
 SERVO_CENTER_US = 1500
-SERVO_RANGE_US = 200       # +/- 200us swing
+SERVO_RANGE_US = 200
 # =================================================
 
 
@@ -44,46 +44,57 @@ class MotorSignalsNode(Node):
             10
         )
 
+        # 🔥 NEW: Track previous speed sign
+        self.previous_speed = 0.0
+        self.reverse_armed = False
+
     def map_range(self, val, in_min, in_max, out_min, out_max):
-        # Calculate the mapping
         mapped = out_min + (val - in_min) * (out_max - out_min) / (in_max - in_min)
-        # Clamp the output to ensure we never exceed hardware limits
         return max(min(mapped, out_max), out_min)
 
     def drive_callback(self, msg):
-        # Extract data from Ackermann message
-        # msg.drive.speed is in m/s
-        # msg.drive.steering_angle is in radians
-        
+
         target_speed = msg.drive.speed
         target_angle = msg.drive.steering_angle
 
-        # 1. Map Speed (m/s) to ESC (microseconds)
-        # Note: We assume forward only based on your previous code
+        # ================= ESC LOGIC FIX =================
+
+        # Detect Forward → Reverse transition
+        if self.previous_speed > 0 and target_speed < 0 and not self.reverse_armed:
+            self.get_logger().info("Forward → Reverse detected. Sending neutral reset...")
+            self.ser.write(f"{ESC_NEUTRAL_US},{SERVO_CENTER_US}\n".encode())
+            time.sleep(0.25)   # 250ms delay for 1/10 RC ESC
+            self.reverse_armed = True
+
+        # Reset reverse arm when returning to neutral or forward
+        if target_speed >= 0:
+            self.reverse_armed = False
+
+        # =================================================
+
         esc_us = int(self.map_range(
             target_speed,
-            MAX_REVERSE_SPEED_MPS , MAX_SPEED_MPS,         # Input range (0 to 1.0 m/s)
-            ESC_MIN_US, ESC_FORWARD_MAX_US # Output range (1000 to 1600 us)
+            MAX_REVERSE_SPEED_MPS, MAX_SPEED_MPS,
+            ESC_MIN_US, ESC_FORWARD_MAX_US
         ))
 
-        # 2. Map Steering (radians) to Servo (microseconds)
         steer_us = int(self.map_range(
             target_angle,
-            -MAX_STEERING_RAD, MAX_STEERING_RAD,  # Input: -0.8 to 0.8 rad
-            SERVO_CENTER_US - SERVO_RANGE_US,     # Output: 1300
-            SERVO_CENTER_US + SERVO_RANGE_US      # Output: 1700
+            -MAX_STEERING_RAD, MAX_STEERING_RAD,
+            SERVO_CENTER_US - SERVO_RANGE_US,
+            SERVO_CENTER_US + SERVO_RANGE_US
         ))
 
-        # Debug
         self.get_logger().info(
             f"ACKERMANN: {target_speed:.2f} m/s, {target_angle:.2f} rad -> ESC: {esc_us}, SERVO: {steer_us}"
         )
-        
+
         cmd = f"{esc_us},{steer_us}\n"
         self.ser.write(cmd.encode())
 
+        self.previous_speed = target_speed
+
     def destroy_node(self):
-        # Stop motors on shutdown for safety
         if self.ser.is_open:
             self.ser.write(f"{ESC_NEUTRAL_US},{SERVO_CENTER_US}\n".encode())
             self.ser.close()
